@@ -81,14 +81,19 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
         onRequestLocation();
     }
 
-    // If we already have location, force immediate flyTo
-    if (mapInstanceRef.current && userLat && userLng) {
-        mapInstanceRef.current.flyTo([userLat, userLng], 18, { animate: true, duration: 1.2 });
-        setTimeout(() => setIsLocating(false), 1200);
-        needsCenteringRef.current = false; // Handled
-    } else {
-        // Wait for props to update
-        setTimeout(() => setIsLocating(false), 8000); // Fallback timeout
+    // Force map size invalidation in case it's in a modal that just appeared
+    if (mapInstanceRef.current) {
+        mapInstanceRef.current.invalidateSize();
+        
+        // If we already have location, force immediate flyTo
+        if (userLat && userLng) {
+            mapInstanceRef.current.flyTo([userLat, userLng], 18, { animate: true, duration: 1.2 });
+            setTimeout(() => setIsLocating(false), 1200);
+            needsCenteringRef.current = false; // Handled
+        } else {
+            // Wait for props to update
+            setTimeout(() => setIsLocating(false), 8000); // Fallback timeout
+        }
     }
   };
 
@@ -124,9 +129,10 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
         subdomains: 'abcd'
       }).addTo(mapInstanceRef.current);
       
+      // Critical: Ensure map renders correctly if container size changes
       setTimeout(() => {
           mapInstanceRef.current.invalidateSize();
-      }, 100);
+      }, 250);
     } 
 
     // --- 1. Handle User Location Marker ---
@@ -176,6 +182,7 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
         
         // Case A: User specifically requested "Locate Me"
         if (needsCenteringRef.current) {
+            mapInstanceRef.current.invalidateSize();
             mapInstanceRef.current.flyTo(latLng, 18, { animate: true, duration: 1.2 });
             needsCenteringRef.current = false;
             hasInitialCenteredRef.current = true;

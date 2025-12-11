@@ -254,15 +254,12 @@ export const CartDetails: React.FC<CartDetailsProps> = ({
   };
 
   const preparePaymentData = (isPayLater: boolean) => {
-      // Create the split object for the Payment Gateway / Order Service
-      // NOTE: Customer pays full 'onlinePayableTotal' to Store.
-      // 'deliveryFee' is passed just for internal record keeping so Store knows they owe Driver.
       const splits = {
-          storeAmount: onlinePayableTotal, // Customer pays Items + Delivery to Store
+          storeAmount: onlinePayableTotal, 
           storeUpi: activeStore?.upiId || 'store@upi',
           handlingFee: 0, 
           adminUpi: 'uday@admin',
-          deliveryFee: deliveryFee, // Internal Record
+          deliveryFee: deliveryFee, 
           driverUpi: 'driver@upi'
       };
 
@@ -297,40 +294,44 @@ export const CartDetails: React.FC<CartDetailsProps> = ({
   const cartStoresForMap = stores.filter(s => cartStoreIds.includes(s.id));
   const mapStores = cartStoresForMap.length > 0 ? cartStoresForMap : (activeStore ? [activeStore] : []);
 
+  // === MAIN LAYOUT ===
+  // We use Flexbox to ensure header at top, footer at bottom, and content filling the middle.
+  // This avoids absolute positioning issues on varying screen sizes.
   return (
     <div className={`flex flex-col h-full relative ${isPage ? 'bg-[#F8FAFC]' : 'bg-[#F8FAFC]'}`}>
       
-      {/* Header (Modal Handle) */}
-      {!isPage && (
-        <div 
-          className="w-full flex justify-center pt-5 pb-3 cursor-pointer bg-white rounded-t-[2.5rem] shadow-[0_1px_0_rgba(0,0,0,0.02)] relative z-20"
-          onClick={onClose}
-        >
-          <div className="w-12 h-1.5 bg-slate-200 rounded-full" />
-        </div>
-      )}
-
-      {/* Header (Title) */}
-      <div className={`px-6 pb-6 bg-white/95 backdrop-blur-xl flex justify-between items-end sticky top-0 z-10 border-b border-slate-100 shadow-sm ${isPage ? 'pt-8' : ''}`}>
-         <div>
-            <h2 className="text-3xl font-black text-slate-800 tracking-tight">Checkout</h2>
-            <div className="flex items-center gap-2 mt-1">
-                <span className={`w-2 h-2 rounded-full animate-pulse ${mode === 'DELIVERY' ? 'bg-emerald-500' : 'bg-blue-500'}`}></span>
-                <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">
-                    {mode === 'DELIVERY' ? 'Fast Delivery' : 'Store Pickup'}
-                </p>
+      {/* 1. Header Section (Shrink 0) */}
+      <div className="shrink-0 bg-white/95 backdrop-blur-xl z-20 shadow-sm rounded-t-[2.5rem]">
+          {!isPage && (
+            <div 
+              className="w-full flex justify-center pt-5 pb-3 cursor-pointer"
+              onClick={onClose}
+            >
+              <div className="w-12 h-1.5 bg-slate-200 rounded-full" />
             </div>
-         </div>
-         <div className="bg-slate-100 text-slate-600 px-4 py-2 rounded-full text-xs font-black shadow-inner border border-slate-200">
-            {totalItems} items
-         </div>
+          )}
+
+          <div className={`px-6 pb-6 flex justify-between items-end border-b border-slate-100 ${isPage ? 'pt-8' : ''}`}>
+             <div>
+                <h2 className="text-3xl font-black text-slate-800 tracking-tight">Checkout</h2>
+                <div className="flex items-center gap-2 mt-1">
+                    <span className={`w-2 h-2 rounded-full animate-pulse ${mode === 'DELIVERY' ? 'bg-emerald-500' : 'bg-blue-500'}`}></span>
+                    <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">
+                        {mode === 'DELIVERY' ? 'Fast Delivery' : 'Store Pickup'}
+                    </p>
+                </div>
+             </div>
+             <div className="bg-slate-100 text-slate-600 px-4 py-2 rounded-full text-xs font-black shadow-inner border border-slate-200">
+                {totalItems} items
+             </div>
+          </div>
       </div>
 
-      {/* Content - Increased padding bottom to allow scrolling past fixed footer */}
-      <div className="flex-1 overflow-y-auto px-5 py-6 hide-scrollbar space-y-8 pb-[24rem]"> 
+      {/* 2. Scrollable Content Section (Flex 1) */}
+      <div className="flex-1 overflow-y-auto px-5 py-6 hide-scrollbar space-y-8"> 
          
          {/* Map Section */}
-         <div className="rounded-[2.5rem] overflow-hidden shadow-card border-[3px] border-white h-48 relative ring-1 ring-slate-100">
+         <div className="rounded-[2.5rem] overflow-hidden shadow-card border-[3px] border-white h-48 relative ring-1 ring-slate-100 shrink-0">
             <MapVisualizer 
                 stores={mapStores}
                 userLat={userLocation?.lat || 0}
@@ -509,12 +510,15 @@ export const CartDetails: React.FC<CartDetailsProps> = ({
                     </div>
                  </div>
             )}
+            
+            {/* Bottom spacer to prevent content cut-off near footer */}
+            <div className="h-4"></div>
          </div>
 
       </div>
 
-      {/* Fixed Footer Summary - COMPACTED */}
-      <div className={`absolute bottom-0 left-0 right-0 z-[60] bg-white/95 backdrop-blur-xl border-t border-slate-100 px-5 pt-4 pb-6 rounded-t-[2.5rem] shadow-[0_-8px_30px_rgba(0,0,0,0.08)] transition-transform duration-300 ${isPage ? 'fixed bottom-24 max-w-md mx-auto left-0 right-0' : ''}`}>
+      {/* 3. Footer Summary (Shrink 0) */}
+      <div className="shrink-0 z-[60] bg-white border-t border-slate-100 px-5 pt-4 pb-8 shadow-[0_-8px_30px_rgba(0,0,0,0.08)]">
          
          {/* Price Breakdown Row */}
          <div className="flex justify-between items-start mb-4">
@@ -616,7 +620,7 @@ export const CartSheet: React.FC<CartDetailsProps> = (props) => {
              onClick={() => setIsExpanded(false)}
            />
            {/* Optimized Modal Height using Dynamic Viewport Units */}
-           <div className="relative w-full h-[95dvh] bg-[#F8FAFC] rounded-t-[2.5rem] shadow-2xl overflow-hidden animate-slide-up">
+           <div className="relative w-full h-[95dvh] bg-[#F8FAFC] rounded-t-[2.5rem] shadow-2xl overflow-hidden animate-slide-up flex flex-col">
               <CartDetails 
                 {...props} 
                 isPage={false} 

@@ -487,7 +487,7 @@ const App: React.FC = () => {
             <div className="flex flex-col items-start gap-1">
                 <div className="flex flex-col items-start">
                    <h1 className="text-2xl font-black text-slate-900 tracking-tight leading-none">Grocesphere</h1>
-                   <div className="mt-1 flex justify-start">
+                   <div className="mt-1 flex items-center justify-start w-full">
                      <SevenX7Logo size="xs" />
                    </div>
                 </div>
