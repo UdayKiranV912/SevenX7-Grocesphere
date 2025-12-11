@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import { Store, OrderMode } from '../types';
 
@@ -5,6 +6,7 @@ interface MapVisualizerProps {
   stores: Store[];
   userLat: number | null;
   userLng: number | null;
+  userAccuracy?: number | null; // Accuracy in meters
   selectedStore: Store | null;
   onSelectStore: (store: Store) => void;
   className?: string;
@@ -18,6 +20,7 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
   stores, 
   userLat, 
   userLng, 
+  userAccuracy,
   selectedStore, 
   onSelectStore, 
   className = "h-48",
@@ -30,6 +33,7 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
   const mapInstanceRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
   const userMarkerRef = useRef<any>(null);
+  const accuracyCircleRef = useRef<any>(null);
   const routeLineRef = useRef<any>(null);
   
   // Center fallback: Bangalore or Store
@@ -86,8 +90,8 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
 
     if (mapInstanceRef.current && userLat && userLng) {
         // We already have location, just fly there
-        mapInstanceRef.current.flyTo([userLat, userLng], 16, { duration: 1.5 });
-        setTimeout(() => setIsLocating(false), 1500);
+        mapInstanceRef.current.setView([userLat, userLng], 16, { animate: true });
+        setTimeout(() => setIsLocating(false), 1000);
     } else if (onRequestLocation) {
         // Request parent to fetch
         onRequestLocation();
@@ -119,19 +123,28 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
         center: [mapCenterLat, mapCenterLng],
         zoom: 14,
         zoomControl: false,
-        attributionControl: false
+        attributionControl: false,
+        trackResize: true
       });
 
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: ''
       }).addTo(mapInstanceRef.current);
+      
+      // Fix for map not rendering tiles correctly in some containers
+      setTimeout(() => {
+          mapInstanceRef.current.invalidateSize();
+      }, 100);
     } 
 
-    // Handle User Marker (Only render if location is real)
+    // Handle User Marker & Accuracy Circle
     if (userLat && userLng) {
+        const latLng = [userLat, userLng];
+        
+        // Marker
         if (!userMarkerRef.current) {
-             userMarkerRef.current = L.marker([userLat, userLng], {
+             userMarkerRef.current = L.marker(latLng, {
                 icon: L.divIcon({
                     className: 'user-pin-live',
                     html: `<div class="relative">
@@ -142,16 +155,40 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
                     iconAnchor: [8, 8]
                 })
              }).addTo(mapInstanceRef.current);
-             // Fly to user on first fix
-             mapInstanceRef.current.flyTo([userLat, userLng], 15, { animate: true });
         } else {
-            userMarkerRef.current.setLatLng([userLat, userLng]);
+            userMarkerRef.current.setLatLng(latLng);
+        }
+
+        // Accuracy Circle
+        if (userAccuracy) {
+            if (!accuracyCircleRef.current) {
+                accuracyCircleRef.current = L.circle(latLng, {
+                    radius: userAccuracy,
+                    color: '#3b82f6',
+                    weight: 1,
+                    opacity: 0.2,
+                    fillColor: '#3b82f6',
+                    fillOpacity: 0.1
+                }).addTo(mapInstanceRef.current);
+            } else {
+                accuracyCircleRef.current.setLatLng(latLng);
+                accuracyCircleRef.current.setRadius(userAccuracy);
+            }
+        }
+        
+        // Initial fly to user
+        if (!selectedStore && !showRoute) {
+            mapInstanceRef.current.setView(latLng, 15);
         }
     } else {
         // Remove marker if location is lost/null
         if (userMarkerRef.current) {
             mapInstanceRef.current.removeLayer(userMarkerRef.current);
             userMarkerRef.current = null;
+        }
+        if (accuracyCircleRef.current) {
+             mapInstanceRef.current.removeLayer(accuracyCircleRef.current);
+             accuracyCircleRef.current = null;
         }
     }
 
@@ -210,13 +247,13 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
       markersRef.current.push(marker);
     });
 
-    // Handle Route Line
+    // Handle Route Line & Bounds
     if (routeLineRef.current) {
         mapInstanceRef.current.removeLayer(routeLineRef.current);
         routeLineRef.current = null;
     }
 
-    // Always draw route if showRoute is true AND we have a user location
+    // Draw route and Fit Bounds
     if (selectedStore && showRoute && userLat && userLng) {
         const latlngs = [
             [userLat, userLng],
@@ -226,7 +263,7 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
         // Consistent line style for visibility, dashed for both to imply 'path'
         routeLineRef.current = L.polyline(latlngs, {
             color: '#059669', // Brand Green
-            weight: 6,
+            weight: 5,
             opacity: 0.8,
             dashArray: '10, 10', 
             lineCap: 'round',
@@ -236,7 +273,6 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
         // Add interaction for Pickup
         if (mode === 'PICKUP' && enableExternalNavigation) {
             routeLineRef.current.on('click', (e: any) => openGoogleMaps(e.originalEvent));
-            // Tooltip on the line
             routeLineRef.current.bindTooltip("Tap to Navigate", {
                 permanent: true, 
                 direction: 'center', 
@@ -244,12 +280,18 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
             });
         }
         
-        // Fit bounds to show route
+        // Smart Bounds Fitting: Show both user and store with padding
         const bounds = L.latLngBounds(latlngs);
-        mapInstanceRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+        // Extend bounds slightly to account for accuracy circle if present
+        if (userAccuracy) {
+             const accuracyBuffer = userAccuracy / 111000; // Roughly convert meters to degrees
+             bounds.extend([userLat + accuracyBuffer, userLng + accuracyBuffer]);
+             bounds.extend([userLat - accuracyBuffer, userLng - accuracyBuffer]);
+        }
+        mapInstanceRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 16, animate: true });
     }
 
-  }, [stores, userLat, userLng, selectedStore, onSelectStore, mode, showRoute, enableExternalNavigation, mapCenterLat, mapCenterLng]);
+  }, [stores, userLat, userLng, userAccuracy, selectedStore, onSelectStore, mode, showRoute, enableExternalNavigation]);
 
   return (
     <div className={`w-full bg-slate-100 rounded-[2.5rem] overflow-hidden relative shadow-inner border border-white ${className}`}>

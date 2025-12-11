@@ -25,59 +25,59 @@ const CartItemRow: React.FC<CartItemRowProps> = ({ item, onUpdateQuantity, index
     }
   }, [item.quantity]);
 
-  // Use stored MRP or fallback (assuming ~20% markup if missing for visual consistency, though data should have it)
+  // Use stored MRP or fallback
   const mrp = item.mrp;
   const savings = mrp && mrp > item.price ? (mrp - item.price) * item.quantity : 0;
 
   return (
     <div 
-       className={`p-3 pr-4 rounded-2xl shadow-sm flex items-center gap-4 animate-slide-up border transition-all duration-300 ${
+       className={`p-4 rounded-[1.2rem] shadow-sm flex items-center gap-4 animate-slide-up border transition-all duration-300 ${
            isHighlighted 
              ? 'bg-brand-light border-brand-DEFAULT/30 scale-[1.02] shadow-md' 
-             : 'bg-white border-slate-100/50 hover:shadow-md'
+             : 'bg-white border-slate-100/60 hover:border-slate-200'
        }`}
        style={{ animationDelay: `${index * 50}ms` }}
      >
         {/* Emoji */}
-        <div className="w-14 h-14 bg-slate-50 rounded-xl flex items-center justify-center text-3xl shrink-0 transition-transform duration-300 group-hover:scale-110 relative overflow-hidden">
+        <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center text-4xl shrink-0 transition-transform duration-300 group-hover:scale-110 relative overflow-hidden shadow-inner">
             {item.emoji}
             {savings > 0 && (
-                <div className="absolute bottom-0 left-0 right-0 bg-green-500 text-white text-[8px] font-bold text-center py-0.5">
+                <div className="absolute bottom-0 left-0 right-0 bg-emerald-500 text-white text-[9px] font-bold text-center py-0.5 leading-none">
                     SAVE ₹{savings}
                 </div>
             )}
         </div>
         
         {/* Details */}
-        <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+        <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
            <h3 className="font-bold text-slate-800 text-sm truncate leading-tight">{item.name}</h3>
            {item.selectedBrand && item.selectedBrand !== 'Generic' && (
-               <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded w-fit">{item.selectedBrand}</span>
+               <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md w-fit">{item.selectedBrand}</span>
            )}
-           <div className="flex items-baseline gap-1.5 mt-0.5">
-               <span className="text-xs font-black text-slate-800">₹{item.price}</span>
+           <div className="flex items-baseline gap-2 mt-0.5">
+               <span className="text-sm font-black text-slate-900">₹{item.price}</span>
                {mrp && mrp > item.price && (
-                   <span className="text-[10px] text-slate-400 line-through">₹{mrp}</span>
+                   <span className="text-xs text-slate-400 line-through decoration-slate-300">₹{mrp}</span>
                )}
            </div>
         </div>
         
         {/* Controls */}
-        <div className="flex items-center gap-2 bg-slate-100/50 p-1 rounded-xl">
+        <div className="flex flex-col items-center gap-1 bg-slate-100/80 p-1 rounded-xl">
             <button 
-              onClick={() => onUpdateQuantity(item.id, -1)}
-              className="w-8 h-8 flex items-center justify-center bg-white rounded-lg shadow-sm text-slate-600 hover:text-red-500 font-bold transition-all active:scale-90 touch-manipulation"
+              onClick={() => onUpdateQuantity(item.id, 1)}
+              className="w-8 h-8 flex items-center justify-center bg-white rounded-lg shadow-sm text-brand-DEFAULT hover:bg-brand-DEFAULT hover:text-white font-bold transition-all active:scale-90 touch-manipulation"
             >
-              −
+              +
             </button>
-            <span className={`w-6 text-center text-sm font-black text-slate-800 transition-all duration-300 ${isHighlighted ? 'scale-125 text-brand-DEFAULT' : ''}`}>
+            <span className={`w-8 text-center text-sm font-black text-slate-800 py-0.5 transition-all duration-300 ${isHighlighted ? 'scale-125 text-brand-DEFAULT' : ''}`}>
                 {item.quantity}
             </span>
             <button 
-              onClick={() => onUpdateQuantity(item.id, 1)}
-              className="w-8 h-8 flex items-center justify-center bg-white rounded-lg shadow-sm text-slate-600 hover:text-brand-DEFAULT font-bold transition-all active:scale-90 touch-manipulation"
+              onClick={() => onUpdateQuantity(item.id, -1)}
+              className="w-8 h-8 flex items-center justify-center bg-white rounded-lg shadow-sm text-slate-400 hover:text-red-500 font-bold transition-all active:scale-90 touch-manipulation"
             >
-              +
+              −
             </button>
         </div>
      </div>
@@ -93,20 +93,20 @@ interface SuggestionsProps {
 const SuggestionsList: React.FC<SuggestionsProps> = ({ suggestions, onAddProduct }) => {
     if (suggestions.length === 0) return null;
     return (
-        <div className="mt-4 pt-2 border-t border-slate-100">
-            <h3 className="text-xs font-black text-slate-400 uppercase tracking-wide mb-3 px-1">You might have missed</h3>
-            <div className="flex gap-3 overflow-x-auto pb-2 hide-scrollbar -mx-2 px-2 snap-x">
+        <div className="mt-4 pt-4 border-t border-slate-100 border-dashed">
+            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">You might have missed</h3>
+            <div className="flex gap-3 overflow-x-auto pb-4 hide-scrollbar -mx-2 px-2 snap-x">
                 {suggestions.map((product) => (
-                    <div key={product.id} className="min-w-[130px] bg-slate-50 p-3 rounded-2xl border border-slate-100 flex flex-col snap-start flex-shrink-0">
-                        <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-2xl self-center mb-2 shadow-sm">
+                    <div key={product.id} className="min-w-[140px] bg-white p-3 rounded-2xl border border-slate-100 flex flex-col snap-start flex-shrink-0 shadow-sm hover:shadow-md transition-shadow">
+                        <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center text-2xl self-center mb-2 shadow-inner">
                             {product.emoji}
                         </div>
-                        <div className="font-bold text-slate-800 text-xs truncate mb-1">{product.name}</div>
-                        <div className="flex justify-between items-center mt-auto pt-2">
-                            <span className="text-xs font-bold text-slate-500">₹{product.price}</span>
+                        <div className="font-bold text-slate-800 text-xs truncate mb-1 text-center">{product.name}</div>
+                        <div className="flex justify-between items-center mt-auto pt-2 border-t border-slate-50">
+                            <span className="text-xs font-bold text-slate-600">₹{product.price}</span>
                             <button 
                                 onClick={() => onAddProduct(product)}
-                                className="w-6 h-6 bg-white text-brand-DEFAULT rounded-lg flex items-center justify-center font-bold hover:bg-brand-DEFAULT hover:text-white transition-all shadow-sm active:scale-90 touch-manipulation"
+                                className="w-7 h-7 bg-slate-900 text-white rounded-lg flex items-center justify-center font-bold hover:bg-brand-DEFAULT transition-all shadow-sm active:scale-90 touch-manipulation"
                             >
                                 +
                             </button>
@@ -130,7 +130,7 @@ export interface CartDetailsProps {
   onAddressChange: (address: string) => void;
   activeStore: Store | null;
   stores: Store[]; 
-  userLocation: { lat: number; lng: number } | null;
+  userLocation: { lat: number; lng: number; accuracy?: number } | null;
   isPage?: boolean;
   onClose?: () => void;
 }
@@ -300,10 +300,10 @@ export const CartDetails: React.FC<CartDetailsProps> = ({
   return (
     <div className={`flex flex-col h-full ${isPage ? 'bg-[#F8FAFC]' : 'bg-[#F8FAFC]'}`}>
       
-      {/* Header (Modal) */}
+      {/* Header (Modal Handle) */}
       {!isPage && (
         <div 
-          className="w-full flex justify-center pt-5 pb-3 cursor-pointer bg-white rounded-t-[2.5rem] shadow-soft relative z-20"
+          className="w-full flex justify-center pt-5 pb-3 cursor-pointer bg-white rounded-t-[2.5rem] shadow-[0_1px_0_rgba(0,0,0,0.02)] relative z-20"
           onClick={onClose}
         >
           <div className="w-12 h-1.5 bg-slate-200 rounded-full" />
@@ -311,30 +311,31 @@ export const CartDetails: React.FC<CartDetailsProps> = ({
       )}
 
       {/* Header (Title) */}
-      <div className={`px-6 pb-6 bg-white/90 backdrop-blur-md flex justify-between items-end sticky top-0 z-10 border-b border-slate-100 ${isPage ? 'pt-8' : ''}`}>
+      <div className={`px-6 pb-6 bg-white/95 backdrop-blur-xl flex justify-between items-end sticky top-0 z-10 border-b border-slate-100 shadow-sm ${isPage ? 'pt-8' : ''}`}>
          <div>
             <h2 className="text-3xl font-black text-slate-800 tracking-tight">Checkout</h2>
             <div className="flex items-center gap-2 mt-1">
-                <span className="w-2 h-2 rounded-full bg-brand-DEFAULT animate-pulse"></span>
+                <span className={`w-2 h-2 rounded-full animate-pulse ${mode === 'DELIVERY' ? 'bg-emerald-500' : 'bg-blue-500'}`}></span>
                 <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">
                     {mode === 'DELIVERY' ? 'Fast Delivery' : 'Store Pickup'}
                 </p>
             </div>
          </div>
-         <div className="bg-slate-100 text-slate-600 px-4 py-1.5 rounded-full text-xs font-black shadow-inner">
+         <div className="bg-slate-100 text-slate-600 px-4 py-2 rounded-full text-xs font-black shadow-inner border border-slate-200">
             {totalItems} items
          </div>
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto px-5 py-6 hide-scrollbar space-y-6 pb-48">
+      <div className="flex-1 overflow-y-auto px-5 py-6 hide-scrollbar space-y-8 pb-[320px]"> {/* Extensive bottom padding to clear footer */}
          
          {/* Map Section */}
-         <div className="rounded-[2rem] overflow-hidden shadow-card border border-white h-48 relative">
+         <div className="rounded-[2.5rem] overflow-hidden shadow-card border-[3px] border-white h-52 relative ring-1 ring-slate-100">
             <MapVisualizer 
                 stores={mapStores}
                 userLat={userLocation?.lat || 0}
                 userLng={userLocation?.lng || 0}
+                userAccuracy={userLocation?.accuracy}
                 selectedStore={activeStore} // Just highlights the last active one
                 onSelectStore={() => {}}
                 mode={mode}
@@ -348,183 +349,216 @@ export const CartDetails: React.FC<CartDetailsProps> = ({
          <div className="space-y-6">
            {Object.entries(groupedItems).map(([storeId, items]: [string, CartItem[]]) => {
               const storeInfo = items[0]; // Use first item to get store name/type
-              // Robust Lookup: Check availableStores first, then fallback to MOCK_STORES static list
               const storeObj = stores.find(s => s.id === storeId) || MOCK_STORES.find(s => s.id === storeId);
               
-              // Filter suggestions strictly for THIS store group
               const availableIds = storeObj?.availableProductIds || [];
               const cartIdsInThisStore = new Set(items.map(i => i.originalProductId));
               
               const storeSuggestions = INITIAL_PRODUCTS
                   .filter(p => availableIds.includes(p.id) && !cartIdsInThisStore.has(p.id))
-                  .slice(0, 5); // Limit to 5 per store
+                  .slice(0, 5); 
 
-              const borderColorClass = storeInfo.storeType === 'produce' ? 'border-l-emerald-500' : 
-                                       storeInfo.storeType === 'dairy' ? 'border-l-blue-500' : 'border-l-orange-500';
+              const themeColor = storeInfo.storeType === 'produce' ? 'text-emerald-600 bg-emerald-50 border-emerald-100' : 
+                                       storeInfo.storeType === 'dairy' ? 'text-blue-600 bg-blue-50 border-blue-100' : 'text-orange-600 bg-orange-50 border-orange-100';
+              
+              const icon = storeInfo.storeType === 'produce' ? '🥦' : storeInfo.storeType === 'dairy' ? '🥛' : '🏪';
 
               return (
-                  <div key={storeId} className={`bg-white p-5 rounded-[2rem] shadow-sm border-t border-r border-b border-slate-100 border-l-[6px] ${borderColorClass} animate-fade-in-up`}>
-                      {/* Store Header */}
-                      <div className="flex items-center gap-3 mb-4 border-b border-slate-50 pb-3">
-                           <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm shadow-sm text-white ${
-                               storeInfo.storeType === 'produce' ? 'bg-emerald-500' : 
-                               storeInfo.storeType === 'dairy' ? 'bg-blue-500' : 'bg-orange-500'
-                           }`}>
-                               {storeInfo.storeType === 'produce' ? '🥦' : storeInfo.storeType === 'dairy' ? '🥛' : '🏪'}
+                  <div key={storeId} className="animate-fade-in-up">
+                      {/* Store Header Bubble */}
+                      <div className={`flex items-center gap-3 mb-3 px-2 py-1`}>
+                           <div className={`w-8 h-8 rounded-full flex items-center justify-center text-lg shadow-sm bg-white border border-slate-100`}>
+                               {icon}
                            </div>
                            <div className="flex-1">
-                               <h3 className="font-black text-slate-800 text-sm">{storeInfo.storeName}</h3>
-                               <p className="text-[10px] text-slate-400 font-bold uppercase">
-                                   {items.length} item{items.length !== 1 ? 's' : ''} • {storeObj ? storeObj.distance : 'Nearby'}
+                               <h3 className="font-black text-slate-800 text-sm leading-none">{storeInfo.storeName}</h3>
+                               <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">
+                                   {storeObj ? storeObj.distance : 'Nearby'} • {storeInfo.storeType}
                                </p>
                            </div>
                       </div>
 
-                      {/* Items */}
-                      <div className="space-y-3">
-                          {items.map((item, idx) => (
-                            <CartItemRow 
-                                key={item.id} 
-                                item={item} 
-                                index={idx}
-                                onUpdateQuantity={onUpdateQuantity}
-                            />
-                          ))}
-                      </div>
+                      {/* Store Container */}
+                      <div className="bg-white p-2 rounded-[2rem] shadow-card border border-slate-100">
+                          {/* Items List */}
+                          <div className="space-y-2 p-2">
+                              {items.map((item, idx) => (
+                                <CartItemRow 
+                                    key={item.id} 
+                                    item={item} 
+                                    index={idx}
+                                    onUpdateQuantity={onUpdateQuantity}
+                                />
+                              ))}
+                          </div>
 
-                      {/* Store Specific Suggestions */}
-                      {storeSuggestions.length > 0 && (
-                          <SuggestionsList suggestions={storeSuggestions} onAddProduct={onAddProduct} />
-                      )}
+                          {/* Suggestions */}
+                          {storeSuggestions.length > 0 && (
+                              <div className="px-2 pb-2">
+                                <SuggestionsList suggestions={storeSuggestions} onAddProduct={onAddProduct} />
+                              </div>
+                          )}
+                      </div>
                   </div>
               );
            })}
          </div>
 
          {/* Options Section */}
-         <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 space-y-6 animate-fade-in">
-             {/* Delivery Toggle */}
-            <div className="grid grid-cols-2 gap-2 bg-slate-50 p-1.5 rounded-2xl">
-                <button 
-                    onClick={() => onModeChange('DELIVERY')}
-                    className={`py-3 rounded-xl text-xs font-black uppercase tracking-wide transition-all touch-manipulation ${mode === 'DELIVERY' ? 'bg-white text-brand-DEFAULT shadow-sm' : 'text-slate-400'}`}
-                >
-                    Delivery
-                </button>
-                <button 
-                    onClick={() => onModeChange('PICKUP')}
-                    className={`py-3 rounded-xl text-xs font-black uppercase tracking-wide transition-all touch-manipulation ${mode === 'PICKUP' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400'}`}
-                >
-                    Pickup
-                </button>
+         <div className="bg-white p-6 rounded-[2.5rem] shadow-card border border-slate-100 space-y-8 animate-fade-in relative z-0">
+             
+             {/* 1. Fulfillment Mode */}
+            <div>
+                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block px-2">Order Type</label>
+                 <div className="bg-slate-100 p-1.5 rounded-[1.5rem] flex relative">
+                    {/* Sliding Background */}
+                    <div className={`absolute top-1.5 bottom-1.5 w-[calc(50%-6px)] bg-white rounded-[1.2rem] shadow-md transition-all duration-300 ease-out ${mode === 'PICKUP' ? 'translate-x-[100%] ml-1.5' : 'translate-x-0'}`}></div>
+                    
+                    <button 
+                        onClick={() => onModeChange('DELIVERY')}
+                        className={`flex-1 py-3.5 rounded-[1.2rem] text-xs font-black uppercase tracking-wide transition-colors relative z-10 ${mode === 'DELIVERY' ? 'text-slate-900' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                        Delivery
+                    </button>
+                    <button 
+                        onClick={() => onModeChange('PICKUP')}
+                        className={`flex-1 py-3.5 rounded-[1.2rem] text-xs font-black uppercase tracking-wide transition-colors relative z-10 ${mode === 'PICKUP' ? 'text-slate-900' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                        Pickup
+                    </button>
+                </div>
             </div>
 
+            {/* 2. Address Input */}
             {mode === 'DELIVERY' && (
                 <div className="animate-fade-in">
-                    <div className="flex justify-between items-center mb-2 pl-1">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase">Delivery Address</label>
+                    <div className="flex justify-between items-center mb-3 px-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Delivery Location</label>
                         <button 
                             onClick={handleUseCurrentLocation}
                             disabled={isLocatingAddress}
-                            className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg flex items-center gap-1 hover:bg-blue-100 transition-colors touch-manipulation"
+                            className="text-[10px] font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-full flex items-center gap-1.5 hover:bg-blue-100 transition-colors touch-manipulation active:scale-95"
                         >
-                            {isLocatingAddress ? 'Locating...' : '📍 Use Current Location'}
+                            {isLocatingAddress ? <span className="animate-spin">⏳</span> : <span>📍</span>}
+                            {isLocatingAddress ? 'Locating...' : 'Use Current'}
                         </button>
                     </div>
-                    <textarea
-                        value={deliveryAddress}
-                        onChange={(e) => onAddressChange(e.target.value)}
-                        placeholder="Enter full address for delivery..."
-                        className="w-full bg-slate-50 border-0 rounded-2xl p-4 text-sm font-bold text-slate-700 placeholder-slate-300 focus:ring-2 focus:ring-brand-DEFAULT focus:bg-white resize-none shadow-inner transition-all"
-                        rows={3}
-                    />
+                    <div className="relative">
+                        <textarea
+                            value={deliveryAddress}
+                            onChange={(e) => onAddressChange(e.target.value)}
+                            placeholder="House / Flat No, Street, Landmark..."
+                            className="w-full bg-slate-50 border border-slate-200 rounded-[1.5rem] p-5 text-sm font-bold text-slate-800 placeholder-slate-400 focus:ring-4 focus:ring-brand-light focus:border-brand-DEFAULT focus:bg-white resize-none shadow-inner transition-all outline-none"
+                            rows={3}
+                        />
+                        <div className="absolute bottom-4 right-4 pointer-events-none text-slate-300">
+                             ✏️
+                        </div>
+                    </div>
                 </div>
             )}
 
-            {/* Time Slots */}
+            {/* 3. Time Slots */}
             <div>
-                 <label className="text-[10px] font-bold text-slate-400 uppercase mb-2 block pl-1">Timing Preference</label>
-                 <div className="grid grid-cols-2 gap-3">
+                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block px-2">Preferred Timing</label>
+                 <div className="grid grid-cols-2 gap-4">
                      <button
                         onClick={() => setDeliveryType('INSTANT')}
-                        className={`p-4 rounded-2xl border-2 text-left transition-all relative overflow-hidden touch-manipulation ${deliveryType === 'INSTANT' ? 'border-brand-DEFAULT bg-brand-light' : 'border-slate-100 bg-white hover:border-slate-200'}`}
+                        className={`p-5 rounded-[1.5rem] border-2 text-left transition-all relative overflow-hidden touch-manipulation group ${
+                            deliveryType === 'INSTANT' 
+                            ? 'border-brand-DEFAULT bg-emerald-50/50 ring-2 ring-brand-DEFAULT/20' 
+                            : 'border-slate-100 bg-slate-50 hover:bg-white hover:border-slate-200'
+                        }`}
                      >
-                         <div className="text-xl mb-2">⚡</div>
-                         <div className="font-bold text-slate-800 text-sm">Instant</div>
-                         <div className="text-[10px] font-bold text-slate-500">~{mode === 'DELIVERY' ? '35' : '15'} mins</div>
+                         <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xl mb-3 transition-colors ${deliveryType === 'INSTANT' ? 'bg-brand-DEFAULT text-white shadow-lg' : 'bg-white text-slate-400 shadow-sm'}`}>⚡</div>
+                         <div className="font-black text-slate-800 text-sm">Instant</div>
+                         <div className="text-[10px] font-bold text-slate-500 mt-0.5">~{mode === 'DELIVERY' ? '35' : '15'} mins</div>
+                         
+                         {deliveryType === 'INSTANT' && <div className="absolute top-3 right-3 text-brand-DEFAULT">✓</div>}
                      </button>
+
                      <button
                         onClick={() => setDeliveryType('SCHEDULED')}
-                        className={`p-4 rounded-2xl border-2 text-left transition-all touch-manipulation ${deliveryType === 'SCHEDULED' ? 'border-brand-DEFAULT bg-brand-light' : 'border-slate-100 bg-white hover:border-slate-200'}`}
+                        className={`p-5 rounded-[1.5rem] border-2 text-left transition-all relative overflow-hidden touch-manipulation group ${
+                            deliveryType === 'SCHEDULED' 
+                            ? 'border-brand-DEFAULT bg-emerald-50/50 ring-2 ring-brand-DEFAULT/20' 
+                            : 'border-slate-100 bg-slate-50 hover:bg-white hover:border-slate-200'
+                        }`}
                      >
-                         <div className="text-xl mb-2">📅</div>
-                         <div className="font-bold text-slate-800 text-sm">Schedule</div>
-                         <div className="text-[10px] font-bold text-slate-500">Select Slot</div>
+                         <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xl mb-3 transition-colors ${deliveryType === 'SCHEDULED' ? 'bg-brand-DEFAULT text-white shadow-lg' : 'bg-white text-slate-400 shadow-sm'}`}>📅</div>
+                         <div className="font-black text-slate-800 text-sm">Schedule</div>
+                         <div className="text-[10px] font-bold text-slate-500 mt-0.5">Select Slot</div>
+
+                         {deliveryType === 'SCHEDULED' && <div className="absolute top-3 right-3 text-brand-DEFAULT">✓</div>}
                      </button>
                  </div>
             </div>
 
             {deliveryType === 'SCHEDULED' && (
-                 <div className="animate-fade-in space-y-2">
+                 <div className="animate-slide-up bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase mb-2 block">Pick a date & time</label>
                     <input 
                       type="datetime-local" 
                       value={scheduledTime}
                       min={minScheduledTime}
                       onChange={(e) => setScheduledTime(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-brand-DEFAULT"
+                      className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-800 outline-none focus:border-brand-DEFAULT focus:ring-2 focus:ring-brand-light transition-all"
                     />
-                    <p className="text-[10px] text-slate-400 px-1">
-                        *Payment due 30 mins before scheduled time.
-                    </p>
+                    <div className="flex gap-2 mt-3 items-start">
+                        <span className="text-brand-DEFAULT text-lg">💡</span>
+                        <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
+                            Pro Tip: Scheduling allows for <strong>"Pay Later"</strong>. You only need to pay 30 mins before the slot.
+                        </p>
+                    </div>
                  </div>
             )}
          </div>
 
       </div>
 
-      {/* Footer Summary */}
-      <div className={`bg-white border-t border-slate-100 p-6 pb-8 z-30 shadow-[0_-10px_40px_rgba(0,0,0,0.03)] ${isPage ? 'fixed bottom-24 left-0 right-0 max-w-md mx-auto rounded-t-[2.5rem]' : ''}`}>
+      {/* Fixed Footer Summary */}
+      <div className={`absolute bottom-0 left-0 right-0 z-[60] bg-white/95 backdrop-blur-xl border-t border-slate-100 p-6 pb-8 rounded-t-[2.5rem] shadow-[0_-10px_60px_-15px_rgba(0,0,0,0.1)] transition-transform duration-300 ${isPage ? 'fixed bottom-24 max-w-md mx-auto left-0 right-0' : ''}`}>
          {/* Savings Banner */}
          {totalSavings > 0 && (
-             <div className="bg-green-50 text-green-700 px-4 py-2 rounded-xl mb-4 text-xs font-bold flex items-center gap-2 border border-green-100">
-                 <span>🎉</span>
-                 <span>You are saving ₹{totalSavings} on this order!</span>
+             <div className="bg-emerald-50 text-emerald-700 px-4 py-2 rounded-xl mb-5 text-xs font-bold flex items-center justify-center gap-2 border border-emerald-100/50">
+                 <span className="text-lg">🎉</span>
+                 <span>You are saving <span className="font-black">₹{totalSavings}</span> on this order!</span>
              </div>
          )}
 
-         {/* Price Breakdown Mini */}
-         <div className="mb-4 space-y-1">
+         {/* Price Breakdown */}
+         <div className="space-y-2 mb-6">
              <div className="flex justify-between text-xs text-slate-500">
                  <span className="font-bold text-slate-600">Item Total</span>
                  <span className="font-bold text-slate-800">₹{itemsTotal}</span>
              </div>
              {mode === 'DELIVERY' && (
                  <div className="flex justify-between text-xs text-slate-500">
-                    <span className="flex items-center gap-1 font-bold text-slate-600">
+                    <span className="flex items-center gap-1.5 font-bold text-slate-600">
                         Delivery Fee
                         {isMovMet ? (
-                            <span className="bg-brand-light text-brand-dark px-1.5 py-0.5 rounded text-[9px] font-black uppercase">Paid by Store</span>
+                            <span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wide">Paid by Store</span>
                         ) : (
                             <span className="bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded text-[9px] font-bold">Standard</span>
                         )}
                     </span>
-                    <span className={`font-bold ${isMovMet ? 'text-brand-DEFAULT' : 'text-slate-800'}`}>
+                    <span className={`font-bold ${isMovMet ? 'text-emerald-600' : 'text-slate-800'}`}>
                         {isMovMet ? 'Free' : `₹${deliveryFee}`}
                     </span>
                  </div>
              )}
          </div>
 
-         <div className="flex justify-between items-end mb-6 pt-3 border-t border-slate-100">
+         <div className="flex justify-between items-end mb-6 pt-4 border-t border-dashed border-slate-200">
             <div>
-               <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Total Payable</p>
-               <div className="text-3xl font-black text-slate-900 tracking-tight">₹{onlinePayableTotal}</div>
+               <p className="text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">Total Payable</p>
+               <div className="text-4xl font-black text-slate-900 tracking-tighter">₹{onlinePayableTotal}</div>
             </div>
             
             {!isMovMet && mode === 'DELIVERY' && (
-                <div className="text-right max-w-[120px]">
-                    <p className="text-[9px] text-orange-600 font-bold leading-tight bg-orange-50 px-2 py-1 rounded-lg">
-                        Add ₹{MINIMUM_ORDER_VALUE - itemsTotal} more for FREE Delivery!
+                <div className="text-right max-w-[140px]">
+                    <p className="text-[10px] text-orange-700 font-bold leading-tight bg-orange-50 px-3 py-1.5 rounded-lg border border-orange-100">
+                        Add <span className="font-black">₹{MINIMUM_ORDER_VALUE - itemsTotal}</span> for FREE Delivery!
                     </p>
                 </div>
             )}
@@ -538,7 +572,7 @@ export const CartDetails: React.FC<CartDetailsProps> = ({
                         className="flex-1 py-4 bg-white border-2 border-slate-900 text-slate-900 rounded-2xl font-black text-sm shadow-sm hover:bg-slate-50 active:scale-[0.98] transition-all touch-manipulation"
                     >
                         Pay Later
-                        <span className="block text-[9px] font-normal opacity-70">Before 30 mins</span>
+                        <span className="block text-[9px] font-normal opacity-70 mt-0.5">Before 30 mins</span>
                     </button>
                     <button 
                         onClick={() => preparePaymentData(false)}
@@ -553,10 +587,11 @@ export const CartDetails: React.FC<CartDetailsProps> = ({
              {!(deliveryType === 'SCHEDULED' && isPayLaterAllowed()) && (
                 <button 
                 onClick={() => preparePaymentData(false)}
-                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-lg shadow-xl hover:bg-black active:scale-[0.98] transition-all flex items-center justify-between px-6 group touch-manipulation ring-1 ring-white/20"
+                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-lg shadow-green-glow hover:shadow-xl hover:bg-black active:scale-[0.98] transition-all flex items-center justify-between px-6 group touch-manipulation ring-1 ring-white/20 relative overflow-hidden"
                 >
-                <span>{deliveryType === 'SCHEDULED' ? 'Pay & Schedule' : `Pay ₹${onlinePayableTotal}`}</span>
-                <span className="bg-white/10 p-2 rounded-full group-hover:bg-white group-hover:text-slate-900 transition-colors">
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
+                <span className="relative z-10">{deliveryType === 'SCHEDULED' ? 'Pay & Schedule' : `Pay ₹${onlinePayableTotal}`}</span>
+                <span className="relative z-10 bg-white/20 p-2 rounded-full group-hover:bg-white group-hover:text-slate-900 transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
                     </svg>
@@ -597,7 +632,7 @@ export const CartSheet: React.FC<CartDetailsProps> = (props) => {
              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity animate-fade-in"
              onClick={() => setIsExpanded(false)}
            />
-           <div className="relative w-full h-[90vh] bg-[#F8FAFC] rounded-t-[2.5rem] shadow-2xl overflow-hidden animate-slide-up">
+           <div className="relative w-full h-[92vh] bg-[#F8FAFC] rounded-t-[2.5rem] shadow-2xl overflow-hidden animate-slide-up">
               <CartDetails 
                 {...props} 
                 isPage={false} 

@@ -5,7 +5,7 @@ import { MapVisualizer } from './MapVisualizer';
 import { getUserOrders, subscribeToUserOrders } from '../services/orderService';
 
 interface MyOrdersProps {
-  userLocation: { lat: number; lng: number } | null;
+  userLocation: { lat: number; lng: number; accuracy?: number } | null;
   onPayNow?: (order: Order) => void;
   userId?: string;
 }

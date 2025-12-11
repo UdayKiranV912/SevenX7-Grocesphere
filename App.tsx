@@ -122,28 +122,26 @@ const App: React.FC = () => {
     // Pass user ID to determine if we should load mock stores
     const isDemoUser = user.id === 'demo-user';
 
+    const updatePosition = (position: GeolocationPosition) => {
+        const { latitude, longitude, accuracy } = position.coords;
+        setUser(prev => ({ 
+            ...prev, 
+            location: { lat: latitude, lng: longitude, accuracy } 
+        }));
+        
+        if (!hasFetchedStores.current) {
+            initializeStores(latitude, longitude, isDemoUser);
+        }
+    };
+
     navigator.geolocation.getCurrentPosition(
-        (position) => {
-            const { latitude, longitude } = position.coords;
-            setUser(prev => ({ ...prev, location: { lat: latitude, lng: longitude } }));
-            
-            if (!hasFetchedStores.current) {
-                initializeStores(latitude, longitude, isDemoUser);
-            }
-        },
+        updatePosition,
         (error) => console.warn("Location error:", error.message),
         { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
 
     watchIdRef.current = navigator.geolocation.watchPosition(
-        (position) => {
-            const { latitude, longitude } = position.coords;
-            setUser(prev => ({ ...prev, location: { lat: latitude, lng: longitude } }));
-            
-            if (!hasFetchedStores.current) {
-                initializeStores(latitude, longitude, isDemoUser);
-            }
-        },
+        updatePosition,
         (err) => console.warn("Watch position silent error:", err),
         { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 }
     );
@@ -538,6 +536,7 @@ const App: React.FC = () => {
                         stores={availableStores} 
                         userLat={user.location?.lat || 0}
                         userLng={user.location?.lng || 0}
+                        userAccuracy={user.location?.accuracy}
                         selectedStore={activeStore}
                         onSelectStore={setActiveStore}
                         mode={orderMode}

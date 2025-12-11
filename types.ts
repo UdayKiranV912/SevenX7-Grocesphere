@@ -59,7 +59,7 @@ export interface UserState {
   email?: string;
   name?: string;
   address?: string;
-  location: { lat: number; lng: number } | null;
+  location: { lat: number; lng: number; accuracy?: number } | null;
   savedCards?: SavedCard[];
   role?: 'customer' | 'store_owner' | 'delivery_partner' | 'admin';
   verificationStatus?: 'pending' | 'verified' | 'rejected';
