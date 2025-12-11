@@ -31,7 +31,7 @@ const CartItemRow: React.FC<CartItemRowProps> = ({ item, onUpdateQuantity, index
 
   return (
     <div 
-       className={`p-4 rounded-[1.2rem] shadow-sm flex items-center gap-4 animate-slide-up border transition-all duration-300 ${
+       className={`p-3 rounded-[1.2rem] shadow-sm flex items-center gap-3 animate-slide-up border transition-all duration-300 ${
            isHighlighted 
              ? 'bg-brand-light border-brand-DEFAULT/30 scale-[1.02] shadow-md' 
              : 'bg-white border-slate-100/60 hover:border-slate-200'
@@ -39,20 +39,20 @@ const CartItemRow: React.FC<CartItemRowProps> = ({ item, onUpdateQuantity, index
        style={{ animationDelay: `${index * 50}ms` }}
      >
         {/* Emoji */}
-        <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center text-4xl shrink-0 transition-transform duration-300 group-hover:scale-110 relative overflow-hidden shadow-inner">
+        <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center text-3xl shrink-0 transition-transform duration-300 group-hover:scale-110 relative overflow-hidden shadow-inner">
             {item.emoji}
             {savings > 0 && (
-                <div className="absolute bottom-0 left-0 right-0 bg-emerald-500 text-white text-[9px] font-bold text-center py-0.5 leading-none">
+                <div className="absolute bottom-0 left-0 right-0 bg-emerald-500 text-white text-[8px] font-bold text-center py-0.5 leading-none">
                     SAVE ₹{savings}
                 </div>
             )}
         </div>
         
         {/* Details */}
-        <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
+        <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
            <h3 className="font-bold text-slate-800 text-sm truncate leading-tight">{item.name}</h3>
            {item.selectedBrand && item.selectedBrand !== 'Generic' && (
-               <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md w-fit">{item.selectedBrand}</span>
+               <span className="text-[9px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-md w-fit">{item.selectedBrand}</span>
            )}
            <div className="flex items-baseline gap-2 mt-0.5">
                <span className="text-sm font-black text-slate-900">₹{item.price}</span>
@@ -66,16 +66,16 @@ const CartItemRow: React.FC<CartItemRowProps> = ({ item, onUpdateQuantity, index
         <div className="flex flex-col items-center gap-1 bg-slate-100/80 p-1 rounded-xl">
             <button 
               onClick={() => onUpdateQuantity(item.id, 1)}
-              className="w-8 h-8 flex items-center justify-center bg-white rounded-lg shadow-sm text-brand-DEFAULT hover:bg-brand-DEFAULT hover:text-white font-bold transition-all active:scale-90 touch-manipulation"
+              className="w-7 h-7 flex items-center justify-center bg-white rounded-lg shadow-sm text-brand-DEFAULT hover:bg-brand-DEFAULT hover:text-white font-bold transition-all active:scale-90 touch-manipulation"
             >
               +
             </button>
-            <span className={`w-8 text-center text-sm font-black text-slate-800 py-0.5 transition-all duration-300 ${isHighlighted ? 'scale-125 text-brand-DEFAULT' : ''}`}>
+            <span className={`w-7 text-center text-sm font-black text-slate-800 py-0.5 transition-all duration-300 ${isHighlighted ? 'scale-125 text-brand-DEFAULT' : ''}`}>
                 {item.quantity}
             </span>
             <button 
               onClick={() => onUpdateQuantity(item.id, -1)}
-              className="w-8 h-8 flex items-center justify-center bg-white rounded-lg shadow-sm text-slate-400 hover:text-red-500 font-bold transition-all active:scale-90 touch-manipulation"
+              className="w-7 h-7 flex items-center justify-center bg-white rounded-lg shadow-sm text-slate-400 hover:text-red-500 font-bold transition-all active:scale-90 touch-manipulation"
             >
               −
             </button>
@@ -97,8 +97,8 @@ const SuggestionsList: React.FC<SuggestionsProps> = ({ suggestions, onAddProduct
             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">You might have missed</h3>
             <div className="flex gap-3 overflow-x-auto pb-4 hide-scrollbar -mx-2 px-2 snap-x">
                 {suggestions.map((product) => (
-                    <div key={product.id} className="min-w-[140px] bg-white p-3 rounded-2xl border border-slate-100 flex flex-col snap-start flex-shrink-0 shadow-sm hover:shadow-md transition-shadow">
-                        <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center text-2xl self-center mb-2 shadow-inner">
+                    <div key={product.id} className="min-w-[130px] bg-white p-3 rounded-2xl border border-slate-100 flex flex-col snap-start flex-shrink-0 shadow-sm hover:shadow-md transition-shadow">
+                        <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-xl self-center mb-2 shadow-inner">
                             {product.emoji}
                         </div>
                         <div className="font-bold text-slate-800 text-xs truncate mb-1 text-center">{product.name}</div>
@@ -106,7 +106,7 @@ const SuggestionsList: React.FC<SuggestionsProps> = ({ suggestions, onAddProduct
                             <span className="text-xs font-bold text-slate-600">₹{product.price}</span>
                             <button 
                                 onClick={() => onAddProduct(product)}
-                                className="w-7 h-7 bg-slate-900 text-white rounded-lg flex items-center justify-center font-bold hover:bg-brand-DEFAULT transition-all shadow-sm active:scale-90 touch-manipulation"
+                                className="w-6 h-6 bg-slate-900 text-white rounded-lg flex items-center justify-center font-bold hover:bg-brand-DEFAULT transition-all shadow-sm active:scale-90 touch-manipulation"
                             >
                                 +
                             </button>
@@ -298,7 +298,7 @@ export const CartDetails: React.FC<CartDetailsProps> = ({
   const mapStores = cartStoresForMap.length > 0 ? cartStoresForMap : (activeStore ? [activeStore] : []);
 
   return (
-    <div className={`flex flex-col h-full ${isPage ? 'bg-[#F8FAFC]' : 'bg-[#F8FAFC]'}`}>
+    <div className={`flex flex-col h-full relative ${isPage ? 'bg-[#F8FAFC]' : 'bg-[#F8FAFC]'}`}>
       
       {/* Header (Modal Handle) */}
       {!isPage && (
@@ -326,17 +326,17 @@ export const CartDetails: React.FC<CartDetailsProps> = ({
          </div>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto px-5 py-6 hide-scrollbar space-y-8 pb-[320px]"> {/* Extensive bottom padding to clear footer */}
+      {/* Content - Increased padding bottom to allow scrolling past fixed footer */}
+      <div className="flex-1 overflow-y-auto px-5 py-6 hide-scrollbar space-y-8 pb-[24rem]"> 
          
          {/* Map Section */}
-         <div className="rounded-[2.5rem] overflow-hidden shadow-card border-[3px] border-white h-52 relative ring-1 ring-slate-100">
+         <div className="rounded-[2.5rem] overflow-hidden shadow-card border-[3px] border-white h-48 relative ring-1 ring-slate-100">
             <MapVisualizer 
                 stores={mapStores}
                 userLat={userLocation?.lat || 0}
                 userLng={userLocation?.lng || 0}
                 userAccuracy={userLocation?.accuracy}
-                selectedStore={activeStore} // Just highlights the last active one
+                selectedStore={activeStore} 
                 onSelectStore={() => {}}
                 mode={mode}
                 showRoute={true} 
@@ -348,7 +348,7 @@ export const CartDetails: React.FC<CartDetailsProps> = ({
          {/* GROUPED Order List */}
          <div className="space-y-6">
            {Object.entries(groupedItems).map(([storeId, items]: [string, CartItem[]]) => {
-              const storeInfo = items[0]; // Use first item to get store name/type
+              const storeInfo = items[0]; 
               const storeObj = stores.find(s => s.id === storeId) || MOCK_STORES.find(s => s.id === storeId);
               
               const availableIds = storeObj?.availableProductIds || [];
@@ -358,9 +358,6 @@ export const CartDetails: React.FC<CartDetailsProps> = ({
                   .filter(p => availableIds.includes(p.id) && !cartIdsInThisStore.has(p.id))
                   .slice(0, 5); 
 
-              const themeColor = storeInfo.storeType === 'produce' ? 'text-emerald-600 bg-emerald-50 border-emerald-100' : 
-                                       storeInfo.storeType === 'dairy' ? 'text-blue-600 bg-blue-50 border-blue-100' : 'text-orange-600 bg-orange-50 border-orange-100';
-              
               const icon = storeInfo.storeType === 'produce' ? '🥦' : storeInfo.storeType === 'dairy' ? '🥛' : '🏪';
 
               return (
@@ -516,75 +513,61 @@ export const CartDetails: React.FC<CartDetailsProps> = ({
 
       </div>
 
-      {/* Fixed Footer Summary */}
-      <div className={`absolute bottom-0 left-0 right-0 z-[60] bg-white/95 backdrop-blur-xl border-t border-slate-100 p-6 pb-8 rounded-t-[2.5rem] shadow-[0_-10px_60px_-15px_rgba(0,0,0,0.1)] transition-transform duration-300 ${isPage ? 'fixed bottom-24 max-w-md mx-auto left-0 right-0' : ''}`}>
-         {/* Savings Banner */}
-         {totalSavings > 0 && (
-             <div className="bg-emerald-50 text-emerald-700 px-4 py-2 rounded-xl mb-5 text-xs font-bold flex items-center justify-center gap-2 border border-emerald-100/50">
-                 <span className="text-lg">🎉</span>
-                 <span>You are saving <span className="font-black">₹{totalSavings}</span> on this order!</span>
+      {/* Fixed Footer Summary - COMPACTED */}
+      <div className={`absolute bottom-0 left-0 right-0 z-[60] bg-white/95 backdrop-blur-xl border-t border-slate-100 px-5 pt-4 pb-6 rounded-t-[2.5rem] shadow-[0_-8px_30px_rgba(0,0,0,0.08)] transition-transform duration-300 ${isPage ? 'fixed bottom-24 max-w-md mx-auto left-0 right-0' : ''}`}>
+         
+         {/* Price Breakdown Row */}
+         <div className="flex justify-between items-start mb-4">
+             <div className="space-y-1">
+                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Payable</p>
+                 <div className="text-3xl font-black text-slate-900 tracking-tighter">₹{onlinePayableTotal}</div>
+                 
+                 {/* Compact Breakdown */}
+                 <div className="flex items-center gap-2 text-[10px] text-slate-500 font-medium mt-1">
+                    <span>Items: ₹{itemsTotal}</span>
+                    <span>•</span>
+                    <span>Delivery: {isMovMet ? <span className="text-emerald-600 font-bold">FREE</span> : `₹${deliveryFee}`}</span>
+                 </div>
              </div>
-         )}
 
-         {/* Price Breakdown */}
-         <div className="space-y-2 mb-6">
-             <div className="flex justify-between text-xs text-slate-500">
-                 <span className="font-bold text-slate-600">Item Total</span>
-                 <span className="font-bold text-slate-800">₹{itemsTotal}</span>
-             </div>
-             {mode === 'DELIVERY' && (
-                 <div className="flex justify-between text-xs text-slate-500">
-                    <span className="flex items-center gap-1.5 font-bold text-slate-600">
-                        Delivery Fee
-                        {isMovMet ? (
-                            <span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wide">Paid by Store</span>
-                        ) : (
-                            <span className="bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded text-[9px] font-bold">Standard</span>
-                        )}
-                    </span>
-                    <span className={`font-bold ${isMovMet ? 'text-emerald-600' : 'text-slate-800'}`}>
-                        {isMovMet ? 'Free' : `₹${deliveryFee}`}
-                    </span>
+             {/* Savings Badge - Moved here for compactness */}
+             {totalSavings > 0 && (
+                 <div className="bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg text-[10px] font-bold flex items-center gap-1 border border-emerald-100/50">
+                     <span>🎉 Saved</span>
+                     <span className="font-black">₹{totalSavings}</span>
                  </div>
              )}
          </div>
 
-         <div className="flex justify-between items-end mb-6 pt-4 border-t border-dashed border-slate-200">
-            <div>
-               <p className="text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">Total Payable</p>
-               <div className="text-4xl font-black text-slate-900 tracking-tighter">₹{onlinePayableTotal}</div>
-            </div>
-            
-            {!isMovMet && mode === 'DELIVERY' && (
-                <div className="text-right max-w-[140px]">
-                    <p className="text-[10px] text-orange-700 font-bold leading-tight bg-orange-50 px-3 py-1.5 rounded-lg border border-orange-100">
-                        Add <span className="font-black">₹{MINIMUM_ORDER_VALUE - itemsTotal}</span> for FREE Delivery!
-                    </p>
+         {/* Delivery Progress Bar / Free Delivery Nudge */}
+         {!isMovMet && mode === 'DELIVERY' && (
+            <div className="mb-4 bg-slate-50 rounded-full h-1.5 w-full overflow-hidden flex relative">
+                <div className="h-full bg-brand-DEFAULT absolute left-0" style={{ width: `${(itemsTotal/MINIMUM_ORDER_VALUE)*100}%` }}></div>
+                <div className="w-full text-center text-[8px] font-bold text-slate-400 absolute -top-4 right-0">
+                    Add ₹{MINIMUM_ORDER_VALUE - itemsTotal} for Free Delivery
                 </div>
-            )}
-         </div>
+            </div>
+         )}
 
+         {/* Action Buttons */}
          <div className="flex flex-col gap-3">
-             {deliveryType === 'SCHEDULED' && isPayLaterAllowed() && (
+             {deliveryType === 'SCHEDULED' && isPayLaterAllowed() ? (
                  <div className="flex gap-3">
                     <button 
                         onClick={() => preparePaymentData(true)}
-                        className="flex-1 py-4 bg-white border-2 border-slate-900 text-slate-900 rounded-2xl font-black text-sm shadow-sm hover:bg-slate-50 active:scale-[0.98] transition-all touch-manipulation"
+                        className="flex-1 py-3.5 bg-white border-2 border-slate-900 text-slate-900 rounded-2xl font-black text-xs shadow-sm hover:bg-slate-50 active:scale-[0.98] transition-all touch-manipulation"
                     >
                         Pay Later
-                        <span className="block text-[9px] font-normal opacity-70 mt-0.5">Before 30 mins</span>
+                        <span className="block text-[8px] font-normal opacity-70 mt-0.5">Before 30 mins</span>
                     </button>
                     <button 
                         onClick={() => preparePaymentData(false)}
-                        className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-black text-sm shadow-xl hover:bg-black active:scale-[0.98] transition-all touch-manipulation"
+                        className="flex-1 py-3.5 bg-slate-900 text-white rounded-2xl font-black text-xs shadow-xl hover:bg-black active:scale-[0.98] transition-all touch-manipulation"
                     >
                         Pay Now
                     </button>
                  </div>
-             )}
-
-             {/* Standard Pay Button - High Contrast */}
-             {!(deliveryType === 'SCHEDULED' && isPayLaterAllowed()) && (
+             ) : (
                 <button 
                 onClick={() => preparePaymentData(false)}
                 className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-lg shadow-green-glow hover:shadow-xl hover:bg-black active:scale-[0.98] transition-all flex items-center justify-between px-6 group touch-manipulation ring-1 ring-white/20 relative overflow-hidden"
@@ -632,7 +615,8 @@ export const CartSheet: React.FC<CartDetailsProps> = (props) => {
              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity animate-fade-in"
              onClick={() => setIsExpanded(false)}
            />
-           <div className="relative w-full h-[92vh] bg-[#F8FAFC] rounded-t-[2.5rem] shadow-2xl overflow-hidden animate-slide-up">
+           {/* Optimized Modal Height using Dynamic Viewport Units */}
+           <div className="relative w-full h-[95dvh] bg-[#F8FAFC] rounded-t-[2.5rem] shadow-2xl overflow-hidden animate-slide-up">
               <CartDetails 
                 {...props} 
                 isPage={false} 

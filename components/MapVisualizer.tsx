@@ -35,7 +35,10 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
   const userMarkerRef = useRef<any>(null);
   const accuracyCircleRef = useRef<any>(null);
   const routeLineRef = useRef<any>(null);
-  const hasCenteredRef = useRef(false);
+  
+  // Logic Refs
+  const hasInitialCenteredRef = useRef(false);
+  const needsCenteringRef = useRef(false); // New: Tracks if user specifically requested centering
   const prevStoreIdRef = useRef<string | null>(null);
   
   // Center fallback: Bangalore or Store
@@ -43,18 +46,7 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
   const mapCenterLng = userLng || (selectedStore ? selectedStore.lng - 0.005 : 77.5946);
   
   const [dynamicDistance, setDynamicDistance] = useState<string>('');
-  const [hasUserLocation, setHasUserLocation] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
-
-  // Sync state with props
-  useEffect(() => {
-    if (userLat && userLng) {
-        setHasUserLocation(true);
-        if (isLocating) setIsLocating(false); 
-    } else {
-        setHasUserLocation(false);
-    }
-  }, [userLat, userLng]);
 
   // Haversine Distance Calc
   const calculateDist = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -70,12 +62,8 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
 
   // Update distance based on props updates
   useEffect(() => {
-      // Prioritize real user location if available
-      const lat = userLat;
-      const lng = userLng;
-
-      if (selectedStore && lat && lng) {
-          const dist = calculateDist(lat, lng, selectedStore.lat, selectedStore.lng);
+      if (selectedStore && userLat && userLng) {
+          const dist = calculateDist(userLat, userLng, selectedStore.lat, selectedStore.lng);
           setDynamicDistance(dist);
       } else {
         setDynamicDistance('');
@@ -87,19 +75,20 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
     e.stopPropagation();
     
     setIsLocating(true);
-    hasCenteredRef.current = false; // Reset so the next update forces recenter
+    needsCenteringRef.current = true; // Mark that we MUST center on user update
 
     if (onRequestLocation) {
         onRequestLocation();
     }
 
+    // If we already have location, force immediate flyTo
     if (mapInstanceRef.current && userLat && userLng) {
-        // Immediate visual feedback if we have location
-        mapInstanceRef.current.flyTo([userLat, userLng], 16, { animate: true, duration: 1.5 });
-        setTimeout(() => setIsLocating(false), 1500);
+        mapInstanceRef.current.flyTo([userLat, userLng], 18, { animate: true, duration: 1.2 });
+        setTimeout(() => setIsLocating(false), 1200);
+        needsCenteringRef.current = false; // Handled
     } else {
-        // Fallback timeout
-        setTimeout(() => setIsLocating(false), 8000);
+        // Wait for props to update
+        setTimeout(() => setIsLocating(false), 8000); // Fallback timeout
     }
   };
 
@@ -128,20 +117,19 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
         trackResize: true
       });
 
-      // Use CartoDB Voyager for a much cleaner, app-like look
+      // Use CartoDB Voyager
       L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
         attribution: '',
         maxZoom: 20,
         subdomains: 'abcd'
       }).addTo(mapInstanceRef.current);
       
-      // Fix for map not rendering tiles correctly in some containers
       setTimeout(() => {
           mapInstanceRef.current.invalidateSize();
       }, 100);
     } 
 
-    // Handle User Marker & Accuracy Circle
+    // --- 1. Handle User Location Marker ---
     if (userLat && userLng) {
         const latLng = [userLat, userLng];
         
@@ -164,8 +152,7 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
              }).addTo(mapInstanceRef.current);
         } else {
             userMarkerRef.current.setLatLng(latLng);
-            // Smoothly move marker if it exists (Leaflet handles this mostly, but setLatLng is instant. 
-            // For smoother animation, one would need a plugin, but standard update is usually fine for walking speed).
+            userMarkerRef.current.setZIndexOffset(1000);
         }
 
         // Accuracy Circle
@@ -177,7 +164,7 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
                     weight: 1,
                     opacity: 0,
                     fillColor: '#3b82f6',
-                    fillOpacity: 0.08
+                    fillOpacity: 0.1
                 }).addTo(mapInstanceRef.current);
             } else {
                 accuracyCircleRef.current.setLatLng(latLng);
@@ -185,14 +172,23 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
             }
         }
         
-        // Initial Center Logic
-        // Only center if we haven't yet, OR if user explicitly requested location
-        if (!hasCenteredRef.current && !selectedStore && !showRoute) {
-            mapInstanceRef.current.setView(latLng, 15);
-            hasCenteredRef.current = true;
+        // --- Centering Logic ---
+        
+        // Case A: User specifically requested "Locate Me"
+        if (needsCenteringRef.current) {
+            mapInstanceRef.current.flyTo(latLng, 18, { animate: true, duration: 1.2 });
+            needsCenteringRef.current = false;
+            hasInitialCenteredRef.current = true;
+            setIsLocating(false); // Stop spinner
         }
+        // Case B: Initial Load (only if not viewing a specific route/store yet)
+        else if (!hasInitialCenteredRef.current && !selectedStore && !showRoute) {
+            mapInstanceRef.current.setView(latLng, 15);
+            hasInitialCenteredRef.current = true;
+        }
+
     } else {
-        // Remove marker if location is lost/null
+        // Cleanup if location lost
         if (userMarkerRef.current) {
             mapInstanceRef.current.removeLayer(userMarkerRef.current);
             userMarkerRef.current = null;
@@ -203,7 +199,7 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
         }
     }
 
-    // Update Store Markers
+    // --- 2. Update Store Markers ---
     markersRef.current.forEach(m => mapInstanceRef.current.removeLayer(m));
     markersRef.current = [];
 
@@ -212,13 +208,8 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
        let emoji = '🏪';
        let borderColor = isSelected ? '#000' : '#fff';
        
-       if (type === 'produce') {
-         color = '#22c55e';
-         emoji = '🥦';
-       } else if (type === 'dairy') {
-         color = '#3b82f6';
-         emoji = '🥛';
-       }
+       if (type === 'produce') { color = '#22c55e'; emoji = '🥦'; } 
+       else if (type === 'dairy') { color = '#3b82f6'; emoji = '🥛'; }
 
        const size = isSelected ? 48 : 36;
 
@@ -232,17 +223,14 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
             transform: rotate(-45deg);
             border: ${isSelected ? '3px' : '2px'} solid ${borderColor};
             box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-            display: flex; 
-            align-items: center; 
-            justify-content: center;
+            display: flex; align-items: center; justify-content: center;
             z-index: ${isSelected ? 100 : 1};
-            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             cursor: pointer;
           ">
             <div style="transform: rotate(45deg); font-size: ${isSelected ? 24 : 18}px; line-height: 1;">${emoji}</div>
           </div>`,
           iconSize: [size, size],
-          iconAnchor: [size/2, size] // Anchor at the bottom tip
+          iconAnchor: [size/2, size] 
        });
     };
 
@@ -250,12 +238,12 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
       const isSelected = selectedStore?.id === store.id;
       const marker = L.marker([store.lat, store.lng], {
         icon: createIcon(store.type, isSelected),
-        zIndexOffset: isSelected ? 1000 : 0
+        zIndexOffset: isSelected ? 500 : 0
       }).addTo(mapInstanceRef.current);
 
       marker.on('click', () => {
           onSelectStore(store);
-          // Only zoom to store if not in route mode, otherwise the route logic handles view
+          // Only zoom if NOT in route mode (route handles its own bounds)
           if (!showRoute) {
             mapInstanceRef.current.flyTo([store.lat, store.lng], 16, { animate: true, duration: 1 });
           }
@@ -263,52 +251,41 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
       markersRef.current.push(marker);
     });
 
-    // Handle Route Line & Bounds
+    // --- 3. Route & Bounds Logic ---
     if (routeLineRef.current) {
         mapInstanceRef.current.removeLayer(routeLineRef.current);
         routeLineRef.current = null;
     }
 
-    // Draw route and Fit Bounds
-    if (selectedStore && showRoute && userLat && userLng) {
+    // Only draw route/bounds if we have both points AND user isn't actively trying to "Locate Me"
+    if (selectedStore && showRoute && userLat && userLng && !needsCenteringRef.current) {
         const latlngs = [
             [userLat, userLng],
             [selectedStore.lat, selectedStore.lng]
         ];
         
-        // Consistent line style for visibility, dashed for both to imply 'path'
         routeLineRef.current = L.polyline(latlngs, {
-            color: '#059669', // Brand Green
+            color: '#059669', 
             weight: 6,
-            opacity: 0.9,
-            dashArray: '12, 12', 
+            opacity: 0.8,
+            dashArray: '10, 10', 
             lineCap: 'round',
-            className: 'animate-dash' // Assuming global css animation for dash
         }).addTo(mapInstanceRef.current);
 
-        // Calculate Bounds Logic
-        // We only auto-fit bounds if:
-        // 1. We just switched to this store (new selection)
-        // 2. We just enabled routing
-        // 3. The user explicitly asked to "Locate Me"/Center
+        // Auto-fit bounds logic
         const storeChanged = prevStoreIdRef.current !== selectedStore.id;
         
-        if (storeChanged || isLocating) {
+        // If the store changed, OR if we just got user location for the first time
+        if (storeChanged) {
             const bounds = L.latLngBounds(latlngs);
-            // Add padding for accuracy
-            if (userAccuracy) {
-                 const accuracyBuffer = userAccuracy / 111000; 
-                 bounds.extend([userLat + accuracyBuffer, userLng + accuracyBuffer]);
-                 bounds.extend([userLat - accuracyBuffer, userLng - accuracyBuffer]);
-            }
-            mapInstanceRef.current.fitBounds(bounds, { padding: [80, 80], maxZoom: 16, animate: true });
-            hasCenteredRef.current = true;
+            // Pad bounds slightly
+            mapInstanceRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 16, animate: true });
         }
         
         prevStoreIdRef.current = selectedStore.id;
     }
 
-  }, [stores, userLat, userLng, userAccuracy, selectedStore, onSelectStore, mode, showRoute, enableExternalNavigation, isLocating]);
+  }, [stores, userLat, userLng, userAccuracy, selectedStore, onSelectStore, mode, showRoute, enableExternalNavigation]);
 
   return (
     <div className={`w-full bg-slate-100 rounded-[2.5rem] overflow-hidden relative shadow-inner border border-white ${className}`}>
@@ -318,7 +295,7 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
         onClick={handleLocateMe}
         className={`absolute top-4 left-4 z-[1000] w-11 h-11 bg-white rounded-2xl shadow-lg border border-slate-100 flex items-center justify-center transition-all cursor-pointer active:scale-95 ${
             isLocating ? 'text-brand-DEFAULT ring-2 ring-brand-light' : 
-            !hasUserLocation ? 'text-slate-300' : 'text-slate-700 hover:text-brand-DEFAULT'
+            !userLat ? 'text-slate-300' : 'text-slate-700 hover:text-brand-DEFAULT'
         }`}
         title="Recenter Map"
         type="button"
@@ -332,7 +309,7 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
         )}
       </button>
 
-      {/* Navigate Button for Pickup */}
+      {/* Navigate Button */}
       {enableExternalNavigation && selectedStore && mode === 'PICKUP' && (
           <button 
             onClick={openGoogleMaps}
@@ -367,8 +344,7 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
                  </div>
              </div>
              
-             {/* Distance Info - Only show if we have a valid distance calculation */}
-             {showRoute && hasUserLocation && (
+             {showRoute && userLat && (
                <div className="text-right whitespace-nowrap pl-2 border-l border-slate-100 ml-2">
                   <div className="text-[10px] font-bold text-slate-400 uppercase">Dist.</div>
                   <div className="text-sm font-black text-brand-DEFAULT">{dynamicDistance || selectedStore.distance}</div>

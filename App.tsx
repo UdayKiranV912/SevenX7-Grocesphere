@@ -140,11 +140,11 @@ const App: React.FC = () => {
         }
     };
 
-    // First get a quick fix (potentially cached)
+    // First get a quick fix (less aggressive caching: 10s max age)
     navigator.geolocation.getCurrentPosition(
         updatePosition,
         (error) => console.warn("Initial location error:", error.message),
-        { enableHighAccuracy: true, timeout: 5000, maximumAge: 30000 }
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 10000 }
     );
 
     // Then watch for high-accuracy updates

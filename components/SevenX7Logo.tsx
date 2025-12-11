@@ -14,7 +14,7 @@ const SevenX7Logo: React.FC<SevenX7LogoProps> = ({ size = 'small', isWelcome = f
           case 'xs': return 'text-[10px]';
           case 'small': return 'text-xs';
           case 'medium': return 'text-lg';
-          case 'large': return 'text-4xl'; // Reduced from 6xl to prevent overflow
+          case 'large': return 'text-4xl'; 
           default: return 'text-xs';
       }
   };
@@ -28,7 +28,7 @@ const SevenX7Logo: React.FC<SevenX7LogoProps> = ({ size = 'small', isWelcome = f
   const trackingClass = size === 'xs' ? 'tracking-[0.15em]' : isLarge ? 'tracking-[0.2em]' : 'tracking-[0.3em]';
 
   return (
-    <div className={`group flex items-center justify-center font-display font-black ${gapClass} select-none w-full`}>
+    <div className={`group flex items-center font-display font-black ${gapClass} select-none`}>
       
       {/* SEVEN */}
       <span 
