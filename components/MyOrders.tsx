@@ -8,9 +8,10 @@ interface MyOrdersProps {
   userLocation: { lat: number; lng: number; accuracy?: number } | null;
   onPayNow?: (order: Order) => void;
   userId?: string;
+  onRequestLocation?: () => void;
 }
 
-export const MyOrders: React.FC<MyOrdersProps> = ({ userLocation, onPayNow, userId }) => {
+export const MyOrders: React.FC<MyOrdersProps> = ({ userLocation, onPayNow, userId, onRequestLocation }) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -269,6 +270,8 @@ export const MyOrders: React.FC<MyOrdersProps> = ({ userLocation, onPayNow, user
                                 selectedStore={mapStore}
                                 userLat={userLocation?.lat || 0}
                                 userLng={userLocation?.lng || 0}
+                                userAccuracy={userLocation?.accuracy}
+                                onRequestLocation={onRequestLocation}
                                 mode={order.mode}
                                 onSelectStore={() => {}}
                                 showRoute={true}

@@ -108,7 +108,7 @@ const App: React.FC = () => {
 
   const totalCartItems = cart.reduce((acc, item) => acc + item.quantity, 0);
 
-  // Function to trigger location detection - IMPROVED ACCURACY SETTINGS
+  // Function to trigger location detection - IMPROVED ACCURACY SETTINGS & AUTO-ADDRESS
   const detectLocation = useCallback(() => {
     if (!navigator.geolocation) {
         console.warn("Geolocation not supported by browser.");
@@ -122,7 +122,7 @@ const App: React.FC = () => {
     // Pass user ID to determine if we should load mock stores
     const isDemoUser = user.id === 'demo-user';
 
-    const updatePosition = (position: GeolocationPosition) => {
+    const updatePosition = async (position: GeolocationPosition) => {
         const { latitude, longitude, accuracy } = position.coords;
         
         // Log accuracy for debugging (optional)
@@ -134,17 +134,35 @@ const App: React.FC = () => {
             ...prev, 
             location: { lat: latitude, lng: longitude, accuracy } 
         }));
+
+        // Reverse Geocode to get address text automatically
+        // This ensures the "current address" is detected and shown
+        try {
+             // Only auto-fill if we don't have an address yet or if it's the demo address
+             const shouldFetchAddress = !deliveryAddress || deliveryAddress === 'Indiranagar, Bangalore';
+             
+             if (shouldFetchAddress) {
+                 const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+                 const data = await res.json();
+                 if (data && data.display_name) {
+                     setDeliveryAddress(data.display_name);
+                     setUser(prev => ({ ...prev, address: data.display_name }));
+                 }
+             }
+        } catch (e) {
+            console.error("Auto-address detection failed:", e);
+        }
         
         if (!hasFetchedStores.current) {
             initializeStores(latitude, longitude, isDemoUser);
         }
     };
 
-    // First get a quick fix (less aggressive caching: 10s max age)
+    // First get a quick fix (less aggressive caching: 5s max age)
     navigator.geolocation.getCurrentPosition(
         updatePosition,
         (error) => console.warn("Initial location error:", error.message),
-        { enableHighAccuracy: true, timeout: 5000, maximumAge: 10000 }
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 5000 }
     );
 
     // Then watch for high-accuracy updates
@@ -153,12 +171,12 @@ const App: React.FC = () => {
         (err) => console.warn("Watch position error:", err.message),
         { 
             enableHighAccuracy: true, 
-            maximumAge: 0, 
+            maximumAge: 0, // No cache for live updates
             timeout: 20000 
         }
     );
 
-  }, [user.id]); // Depend on user.id to switch modes
+  }, [user.id, deliveryAddress]); 
 
   useEffect(() => {
     return () => {
@@ -487,7 +505,8 @@ const App: React.FC = () => {
             <div className="flex flex-col items-start gap-1">
                 <div className="flex flex-col items-start">
                    <h1 className="text-2xl font-black text-slate-900 tracking-tight leading-none">Grocesphere</h1>
-                   <div className="mt-1 flex items-center justify-start w-full">
+                   {/* Removed w-full to fix logo alignment issues */}
+                   <div className="mt-1 flex items-center justify-start">
                      <SevenX7Logo size="xs" />
                    </div>
                 </div>
@@ -617,7 +636,12 @@ const App: React.FC = () => {
         )}
 
         {currentView === 'ORDERS' && (
-            <MyOrders userLocation={user.location} onPayNow={handlePayForExistingOrder} userId={user.id} />
+            <MyOrders 
+                userLocation={user.location} 
+                onPayNow={handlePayForExistingOrder} 
+                userId={user.id} 
+                onRequestLocation={detectLocation} // Connect location service here
+            />
         )}
 
         {currentView === 'PROFILE' && (
@@ -647,7 +671,16 @@ const App: React.FC = () => {
           })}
       </nav>
 
-      {selectedProduct && <ProductDetailsModal product={selectedProduct} onClose={() => setSelectedProduct(null)} onAdd={(p, q, brand, price, mrp) => addToCart(p, q, brand, price, mrp)} />}
+      {selectedProduct && (
+        <ProductDetailsModal 
+            product={selectedProduct} 
+            cart={cart}
+            activeStoreId={activeStore?.id}
+            onClose={() => setSelectedProduct(null)} 
+            onAdd={(p, q, brand, price, mrp) => addToCart(p, q, brand, price, mrp)}
+            onUpdateQuantity={updateQuantity}
+        />
+      )}
 
       {currentView === 'SHOP' && cart.length > 0 && (
          <CartSheet 

@@ -70,29 +70,52 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
       }
   }, [userLat, userLng, selectedStore]);
 
+  const centerOnUser = (lat: number, lng: number, accuracy: number | null | undefined) => {
+      if (!mapInstanceRef.current) return;
+      
+      const L = (window as any).L;
+      if (!L) return;
+
+      mapInstanceRef.current.invalidateSize();
+
+      // If accuracy is poor (>100m), fit bounds to the circle so user sees the uncertainty area
+      if (accuracy && accuracy > 100) {
+          const bounds = L.latLng(lat, lng).toBounds(accuracy * 2); // approximate
+          mapInstanceRef.current.fitBounds(bounds, { animate: true });
+      } else {
+          // Good accuracy: Fly to point with high zoom
+          mapInstanceRef.current.flyTo([lat, lng], 18, { animate: true, duration: 1.2 });
+      }
+  };
+
   const handleLocateMe = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     
     setIsLocating(true);
-    needsCenteringRef.current = true; // Mark that we MUST center on user update
+    needsCenteringRef.current = true; // Mark that we MUST center on next update
 
+    // Trigger parent request
     if (onRequestLocation) {
         onRequestLocation();
     }
 
-    // Force map size invalidation in case it's in a modal that just appeared
+    // Force map size invalidation immediately (fixes modal render issues)
     if (mapInstanceRef.current) {
         mapInstanceRef.current.invalidateSize();
         
-        // If we already have location, force immediate flyTo
+        // If we already have location, force immediate center
         if (userLat && userLng) {
-            mapInstanceRef.current.flyTo([userLat, userLng], 18, { animate: true, duration: 1.2 });
-            setTimeout(() => setIsLocating(false), 1200);
-            needsCenteringRef.current = false; // Handled
+            centerOnUser(userLat, userLng, userAccuracy);
+            
+            // Artificial delay to show spinner interaction feedback
+            setTimeout(() => {
+                setIsLocating(false);
+                needsCenteringRef.current = false;
+            }, 800);
         } else {
-            // Wait for props to update
-            setTimeout(() => setIsLocating(false), 8000); // Fallback timeout
+            // Wait for props to update (fallback timeout)
+            setTimeout(() => setIsLocating(false), 8000); 
         }
     }
   };
@@ -134,6 +157,8 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
           mapInstanceRef.current.invalidateSize();
       }, 250);
     } 
+
+    let justCenteredOnUser = false;
 
     // --- 1. Handle User Location Marker ---
     if (userLat && userLng) {
@@ -179,19 +204,26 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
         }
         
         // --- Centering Logic ---
+        // Priority: 
+        // 1. Explicit Request ("Locate Me" / needsCenteringRef)
+        // 2. Initial Load + Delivery Mode (Show User & Nearby) -> Center User
+        // 3. Initial Load + No Store Selected -> Center User
         
-        // Case A: User specifically requested "Locate Me"
-        if (needsCenteringRef.current) {
-            mapInstanceRef.current.invalidateSize();
-            mapInstanceRef.current.flyTo(latLng, 18, { animate: true, duration: 1.2 });
-            needsCenteringRef.current = false;
-            hasInitialCenteredRef.current = true;
-            setIsLocating(false); // Stop spinner
-        }
-        // Case B: Initial Load (only if not viewing a specific route/store yet)
-        else if (!hasInitialCenteredRef.current && !selectedStore && !showRoute) {
-            mapInstanceRef.current.setView(latLng, 15);
-            hasInitialCenteredRef.current = true;
+        const isDelivery = mode === 'DELIVERY';
+        const shouldCenterOnUser = 
+            needsCenteringRef.current || 
+            (!hasInitialCenteredRef.current && (isDelivery || !selectedStore));
+
+        if (shouldCenterOnUser) {
+            centerOnUser(userLat, userLng, userAccuracy);
+            
+            // Only mark handled if we actually have data
+            if (userLat && userLng) {
+                needsCenteringRef.current = false;
+                hasInitialCenteredRef.current = true;
+                setIsLocating(false); // Stop spinner
+                justCenteredOnUser = true; // Flag to prevent immediate route bounds override
+            }
         }
 
     } else {
@@ -258,14 +290,14 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
       markersRef.current.push(marker);
     });
 
-    // --- 3. Route & Bounds Logic ---
+    // --- 3. Route Drawing & Bounds ---
     if (routeLineRef.current) {
         mapInstanceRef.current.removeLayer(routeLineRef.current);
         routeLineRef.current = null;
     }
 
-    // Only draw route/bounds if we have both points AND user isn't actively trying to "Locate Me"
-    if (selectedStore && showRoute && userLat && userLng && !needsCenteringRef.current) {
+    // Always draw route if requested and data is available
+    if (selectedStore && showRoute && userLat && userLng) {
         const latlngs = [
             [userLat, userLng],
             [selectedStore.lat, selectedStore.lng]
@@ -279,14 +311,19 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
             lineCap: 'round',
         }).addTo(mapInstanceRef.current);
 
-        // Auto-fit bounds logic
-        const storeChanged = prevStoreIdRef.current !== selectedStore.id;
-        
-        // If the store changed, OR if we just got user location for the first time
-        if (storeChanged) {
-            const bounds = L.latLngBounds(latlngs);
-            // Pad bounds slightly
-            mapInstanceRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 16, animate: true });
+        // --- Bounds Logic ---
+        // Only fit bounds if we DID NOT just center on the user explicitly.
+        // This ensures "Locate Me" or initial Delivery mode centering respects user focus,
+        // while allowing other route views to show the full path.
+        if (!needsCenteringRef.current && !justCenteredOnUser) {
+            const storeChanged = prevStoreIdRef.current !== selectedStore.id;
+            
+            // Refit bounds if store changed OR if we are in a mode where fitting is preferred (like tracking)
+            // For now, we fit if store changed to avoid jarring movements during minor updates
+            if (storeChanged || !hasInitialCenteredRef.current) {
+                const bounds = L.latLngBounds(latlngs);
+                mapInstanceRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 16, animate: true });
+            }
         }
         
         prevStoreIdRef.current = selectedStore.id;

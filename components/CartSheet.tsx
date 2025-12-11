@@ -512,7 +512,7 @@ export const CartDetails: React.FC<CartDetailsProps> = ({
             )}
             
             {/* Bottom spacer to prevent content cut-off near footer */}
-            <div className="h-4"></div>
+            <div className="h-20"></div>
          </div>
 
       </div>
