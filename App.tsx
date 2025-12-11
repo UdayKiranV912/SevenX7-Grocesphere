@@ -435,17 +435,6 @@ const App: React.FC = () => {
     setCurrentView('ORDERS');
   };
 
-  const openSupport = () => {
-     const text = "Hi SevenX7 Support, I need help with my order.";
-     const whatsapp = `https://wa.me/919483496940?text=${encodeURIComponent(text)}`;
-     const mail = `mailto:sevenx7@sevenx7.com?subject=Support Request&body=${text}`;
-     
-     // Simple choice dialog
-     const choice = confirm("Contact Support?\nOK for WhatsApp, Cancel for Email");
-     if (choice) window.open(whatsapp, '_blank');
-     else window.location.href = mail;
-  };
-
   if (!user.isAuthenticated) {
     return <Auth onLoginSuccess={handleLoginSuccess} onDemoLogin={handleDemoLogin} />;
   }
@@ -523,15 +512,6 @@ const App: React.FC = () => {
       </header>
 
       <main className="max-w-md mx-auto pt-4 relative">
-        {/* Support Button (Floating) */}
-        <button 
-            onClick={openSupport}
-            className="fixed bottom-24 right-4 z-[60] w-12 h-12 bg-white rounded-full shadow-lg border border-slate-100 flex items-center justify-center text-2xl hover:scale-110 transition-transform active:scale-95"
-            title="Contact Support"
-        >
-            🎧
-        </button>
-
         {currentView === 'SHOP' && (
           <div className="px-4 space-y-6 animate-fade-in">
             {/* Search Bar */}
