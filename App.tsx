@@ -108,7 +108,7 @@ const App: React.FC = () => {
 
   const totalCartItems = cart.reduce((acc, item) => acc + item.quantity, 0);
 
-  // Function to trigger location detection - IMPROVED
+  // Function to trigger location detection - IMPROVED ACCURACY SETTINGS
   const detectLocation = useCallback(() => {
     if (!navigator.geolocation) {
         console.warn("Geolocation not supported by browser.");
@@ -124,6 +124,12 @@ const App: React.FC = () => {
 
     const updatePosition = (position: GeolocationPosition) => {
         const { latitude, longitude, accuracy } = position.coords;
+        
+        // Log accuracy for debugging (optional)
+        if (accuracy > 100) {
+           console.log(`Low accuracy GPS signal: ${accuracy}m`);
+        }
+
         setUser(prev => ({ 
             ...prev, 
             location: { lat: latitude, lng: longitude, accuracy } 
@@ -134,16 +140,22 @@ const App: React.FC = () => {
         }
     };
 
+    // First get a quick fix (potentially cached)
     navigator.geolocation.getCurrentPosition(
         updatePosition,
-        (error) => console.warn("Location error:", error.message),
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+        (error) => console.warn("Initial location error:", error.message),
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 30000 }
     );
 
+    // Then watch for high-accuracy updates
     watchIdRef.current = navigator.geolocation.watchPosition(
         updatePosition,
-        (err) => console.warn("Watch position silent error:", err),
-        { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 }
+        (err) => console.warn("Watch position error:", err.message),
+        { 
+            enableHighAccuracy: true, 
+            maximumAge: 0, 
+            timeout: 20000 
+        }
     );
 
   }, [user.id]); // Depend on user.id to switch modes
@@ -188,11 +200,7 @@ const App: React.FC = () => {
              }
           } else {
              // REAL USER: Only show DB + OSM Stores
-             // This fulfills: "add in the map the store/local marts from the my store admin"
-             // and ensures Real Users see real data.
              if (allStores.length === 0) {
-                 // Warn or fallback to OSM if desperate, but do NOT show Bangalore Mock stores if user is elsewhere
-                 // unless we are absolutely sure. For now, empty list is safer than misleading mock data.
                  setAvailableStores([]); 
                  setActiveStore(null);
              } else {

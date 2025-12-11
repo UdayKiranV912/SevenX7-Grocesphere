@@ -35,6 +35,8 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
   const userMarkerRef = useRef<any>(null);
   const accuracyCircleRef = useRef<any>(null);
   const routeLineRef = useRef<any>(null);
+  const hasCenteredRef = useRef(false);
+  const prevStoreIdRef = useRef<string | null>(null);
   
   // Center fallback: Bangalore or Store
   const mapCenterLat = userLat || (selectedStore ? selectedStore.lat - 0.008 : 12.9716);
@@ -48,7 +50,7 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
   useEffect(() => {
     if (userLat && userLng) {
         setHasUserLocation(true);
-        setIsLocating(false); // Stop loading if we have coords
+        if (isLocating) setIsLocating(false); 
     } else {
         setHasUserLocation(false);
     }
@@ -81,24 +83,23 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
   }, [userLat, userLng, selectedStore]);
 
   const handleLocateMe = (e: React.MouseEvent) => {
-    // Completely stop propagation to map
     e.preventDefault();
     e.stopPropagation();
-    if (e.nativeEvent) e.nativeEvent.stopImmediatePropagation();
-
+    
     setIsLocating(true);
+    hasCenteredRef.current = false; // Reset so the next update forces recenter
+
+    if (onRequestLocation) {
+        onRequestLocation();
+    }
 
     if (mapInstanceRef.current && userLat && userLng) {
-        // We already have location, just fly there
-        mapInstanceRef.current.setView([userLat, userLng], 16, { animate: true });
-        setTimeout(() => setIsLocating(false), 1000);
-    } else if (onRequestLocation) {
-        // Request parent to fetch
-        onRequestLocation();
-        // Reset loading state after 10s if nothing happens (timeout)
-        setTimeout(() => setIsLocating(false), 10000);
+        // Immediate visual feedback if we have location
+        mapInstanceRef.current.flyTo([userLat, userLng], 16, { animate: true, duration: 1.5 });
+        setTimeout(() => setIsLocating(false), 1500);
     } else {
-        setIsLocating(false);
+        // Fallback timeout
+        setTimeout(() => setIsLocating(false), 8000);
     }
   };
 
@@ -127,9 +128,11 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
         trackResize: true
       });
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: ''
+      // Use CartoDB Voyager for a much cleaner, app-like look
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        attribution: '',
+        maxZoom: 20,
+        subdomains: 'abcd'
       }).addTo(mapInstanceRef.current);
       
       // Fix for map not rendering tiles correctly in some containers
@@ -142,21 +145,27 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
     if (userLat && userLng) {
         const latLng = [userLat, userLng];
         
-        // Marker
+        // Custom Pulse Marker
         if (!userMarkerRef.current) {
              userMarkerRef.current = L.marker(latLng, {
                 icon: L.divIcon({
                     className: 'user-pin-live',
-                    html: `<div class="relative">
-                                <div class="w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-md z-20 relative"></div>
-                                <div class="absolute -top-4 -left-4 w-12 h-12 bg-blue-500/30 rounded-full animate-ping z-10"></div>
-                            </div>`,
-                    iconSize: [16, 16],
-                    iconAnchor: [8, 8]
-                })
+                    html: `
+                      <div class="relative w-full h-full flex items-center justify-center">
+                        <div class="w-4 h-4 bg-blue-500 rounded-full border-[3px] border-white shadow-lg z-20 relative"></div>
+                        <div class="absolute w-12 h-12 bg-blue-500/30 rounded-full animate-ping z-10"></div>
+                        <div class="absolute w-20 h-20 bg-blue-400/10 rounded-full z-0"></div>
+                      </div>
+                    `,
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 12]
+                }),
+                zIndexOffset: 1000
              }).addTo(mapInstanceRef.current);
         } else {
             userMarkerRef.current.setLatLng(latLng);
+            // Smoothly move marker if it exists (Leaflet handles this mostly, but setLatLng is instant. 
+            // For smoother animation, one would need a plugin, but standard update is usually fine for walking speed).
         }
 
         // Accuracy Circle
@@ -166,9 +175,9 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
                     radius: userAccuracy,
                     color: '#3b82f6',
                     weight: 1,
-                    opacity: 0.2,
+                    opacity: 0,
                     fillColor: '#3b82f6',
-                    fillOpacity: 0.1
+                    fillOpacity: 0.08
                 }).addTo(mapInstanceRef.current);
             } else {
                 accuracyCircleRef.current.setLatLng(latLng);
@@ -176,9 +185,11 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
             }
         }
         
-        // Initial fly to user
-        if (!selectedStore && !showRoute) {
+        // Initial Center Logic
+        // Only center if we haven't yet, OR if user explicitly requested location
+        if (!hasCenteredRef.current && !selectedStore && !showRoute) {
             mapInstanceRef.current.setView(latLng, 15);
+            hasCenteredRef.current = true;
         }
     } else {
         // Remove marker if location is lost/null
@@ -209,25 +220,29 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
          emoji = '🥛';
        }
 
+       const size = isSelected ? 48 : 36;
+
        return L.divIcon({
           className: 'custom-pin',
           html: `<div style="
             background-color: ${color};
-            width: ${isSelected ? 40 : 30}px;
-            height: ${isSelected ? 40 : 30}px;
-            border-radius: 50%;
+            width: ${size}px;
+            height: ${size}px;
+            border-radius: 50% 50% 50% 5px;
+            transform: rotate(-45deg);
             border: ${isSelected ? '3px' : '2px'} solid ${borderColor};
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
             display: flex; 
             align-items: center; 
             justify-content: center;
-            font-size: ${isSelected ? 22 : 16}px;
             z-index: ${isSelected ? 100 : 1};
-            transition: all 0.2s;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             cursor: pointer;
-          ">${emoji}</div>`,
-          iconSize: [isSelected ? 40 : 30, isSelected ? 40 : 30],
-          iconAnchor: [isSelected ? 20 : 15, isSelected ? 20 : 15]
+          ">
+            <div style="transform: rotate(45deg); font-size: ${isSelected ? 24 : 18}px; line-height: 1;">${emoji}</div>
+          </div>`,
+          iconSize: [size, size],
+          iconAnchor: [size/2, size] // Anchor at the bottom tip
        });
     };
 
@@ -240,8 +255,9 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
 
       marker.on('click', () => {
           onSelectStore(store);
-          if (mode === 'PICKUP' && isSelected && enableExternalNavigation) {
-              openGoogleMaps();
+          // Only zoom to store if not in route mode, otherwise the route logic handles view
+          if (!showRoute) {
+            mapInstanceRef.current.flyTo([store.lat, store.lng], 16, { animate: true, duration: 1 });
           }
       });
       markersRef.current.push(marker);
@@ -263,53 +279,54 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
         // Consistent line style for visibility, dashed for both to imply 'path'
         routeLineRef.current = L.polyline(latlngs, {
             color: '#059669', // Brand Green
-            weight: 5,
-            opacity: 0.8,
-            dashArray: '10, 10', 
+            weight: 6,
+            opacity: 0.9,
+            dashArray: '12, 12', 
             lineCap: 'round',
-            className: mode === 'PICKUP' ? 'cursor-pointer hover:stroke-emerald-700 transition-colors' : ''
+            className: 'animate-dash' // Assuming global css animation for dash
         }).addTo(mapInstanceRef.current);
 
-        // Add interaction for Pickup
-        if (mode === 'PICKUP' && enableExternalNavigation) {
-            routeLineRef.current.on('click', (e: any) => openGoogleMaps(e.originalEvent));
-            routeLineRef.current.bindTooltip("Tap to Navigate", {
-                permanent: true, 
-                direction: 'center', 
-                className: 'bg-white text-brand-dark text-xs font-bold px-2 py-1 rounded-md shadow-md border border-brand-light'
-            });
+        // Calculate Bounds Logic
+        // We only auto-fit bounds if:
+        // 1. We just switched to this store (new selection)
+        // 2. We just enabled routing
+        // 3. The user explicitly asked to "Locate Me"/Center
+        const storeChanged = prevStoreIdRef.current !== selectedStore.id;
+        
+        if (storeChanged || isLocating) {
+            const bounds = L.latLngBounds(latlngs);
+            // Add padding for accuracy
+            if (userAccuracy) {
+                 const accuracyBuffer = userAccuracy / 111000; 
+                 bounds.extend([userLat + accuracyBuffer, userLng + accuracyBuffer]);
+                 bounds.extend([userLat - accuracyBuffer, userLng - accuracyBuffer]);
+            }
+            mapInstanceRef.current.fitBounds(bounds, { padding: [80, 80], maxZoom: 16, animate: true });
+            hasCenteredRef.current = true;
         }
         
-        // Smart Bounds Fitting: Show both user and store with padding
-        const bounds = L.latLngBounds(latlngs);
-        // Extend bounds slightly to account for accuracy circle if present
-        if (userAccuracy) {
-             const accuracyBuffer = userAccuracy / 111000; // Roughly convert meters to degrees
-             bounds.extend([userLat + accuracyBuffer, userLng + accuracyBuffer]);
-             bounds.extend([userLat - accuracyBuffer, userLng - accuracyBuffer]);
-        }
-        mapInstanceRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 16, animate: true });
+        prevStoreIdRef.current = selectedStore.id;
     }
 
-  }, [stores, userLat, userLng, userAccuracy, selectedStore, onSelectStore, mode, showRoute, enableExternalNavigation]);
+  }, [stores, userLat, userLng, userAccuracy, selectedStore, onSelectStore, mode, showRoute, enableExternalNavigation, isLocating]);
 
   return (
     <div className={`w-full bg-slate-100 rounded-[2.5rem] overflow-hidden relative shadow-inner border border-white ${className}`}>
-      <div ref={mapContainerRef} className="w-full h-full z-0 mix-blend-multiply opacity-90" style={{ minHeight: '100%' }}></div>
+      <div ref={mapContainerRef} className="w-full h-full z-0 outline-none" style={{ minHeight: '100%' }}></div>
 
       <button 
         onClick={handleLocateMe}
-        className={`absolute top-4 left-4 z-[1000] w-10 h-10 bg-white rounded-xl shadow-md flex items-center justify-center transition-all cursor-pointer ${
+        className={`absolute top-4 left-4 z-[1000] w-11 h-11 bg-white rounded-2xl shadow-lg border border-slate-100 flex items-center justify-center transition-all cursor-pointer active:scale-95 ${
             isLocating ? 'text-brand-DEFAULT ring-2 ring-brand-light' : 
-            !hasUserLocation ? 'text-slate-400 hover:text-slate-600' : 'text-blue-600 hover:bg-blue-50 active:scale-95'
+            !hasUserLocation ? 'text-slate-300' : 'text-slate-700 hover:text-brand-DEFAULT'
         }`}
-        title="Live Location"
+        title="Recenter Map"
         type="button"
       >
         {isLocating ? (
              <div className="w-5 h-5 border-2 border-slate-200 border-t-brand-DEFAULT rounded-full animate-spin"></div>
         ) : (
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 pointer-events-none">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
                 <path fillRule="evenodd" d="M11.54 22.351l.07.04.028.016a.76.76 0 00.723 0l.028-.015.071-.041a16.975 16.975 0 001.144-.742 19.58 19.58 0 002.683-2.282c1.944-1.99 3.963-4.98 3.963-8.827a8.25 8.25 0 00-16.5 0c0 3.846 2.02 6.837 3.963 8.827a19.58 19.58 0 002.682 2.282 16.975 16.975 0 001.145.742zM12 13.5a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
             </svg>
         )}
@@ -319,14 +336,14 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
       {enableExternalNavigation && selectedStore && mode === 'PICKUP' && (
           <button 
             onClick={openGoogleMaps}
-            className="absolute top-4 right-4 z-[1000] bg-brand-DEFAULT text-white pl-3 pr-4 py-2.5 rounded-full shadow-lg flex items-center gap-2 hover:bg-brand-dark active:scale-95 transition-all font-bold text-xs animate-scale-in group cursor-pointer"
+            className="absolute top-4 right-4 z-[1000] bg-white text-brand-dark pl-3 pr-4 py-2.5 rounded-2xl shadow-lg border border-slate-100 flex items-center gap-2 hover:bg-slate-50 active:scale-95 transition-all font-black text-xs animate-scale-in group cursor-pointer"
           >
-             <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center group-hover:bg-white/30">
+             <div className="w-6 h-6 bg-brand-light rounded-full flex items-center justify-center group-hover:bg-brand-DEFAULT group-hover:text-white transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 9l3 3m0 0l-3 3m3-3H8m13 0a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
              </div>
-             <span>Get Directions</span>
+             <span>Navigate</span>
           </button>
       )}
 
