@@ -414,15 +414,15 @@ const App: React.FC = () => {
   });
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 pb-24">
+    <div className="min-h-screen bg-[#F8FAFC] font-sans text-slate-900 pb-24">
       
       {/* --- HEADER --- */}
-      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-slate-100/80 shadow-sm">
-        <div className="max-w-md mx-auto px-4 pt-3 pb-2">
+      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-slate-100/80 shadow-sm transition-all">
+        <div className="max-w-md mx-auto px-4 pt-4 pb-3">
             <div className="flex justify-between items-start">
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 text-brand-dark cursor-pointer group" onClick={() => setCurrentView('PROFILE')}>
-                        <div className="bg-brand-light p-1.5 rounded-full text-brand-DEFAULT group-hover:bg-brand-DEFAULT group-hover:text-white transition-colors">
+                        <div className="bg-brand-light p-2 rounded-full text-brand-DEFAULT group-hover:bg-brand-DEFAULT group-hover:text-white transition-colors">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                                 <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
                             </svg>
@@ -442,24 +442,24 @@ const App: React.FC = () => {
                 </div>
                 <button 
                   onClick={() => setCurrentView('PROFILE')}
-                  className="w-9 h-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 font-black text-sm hover:bg-slate-200 transition-colors shadow-sm"
+                  className="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 font-black text-sm hover:bg-slate-200 transition-colors shadow-sm"
                 >
                   {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
                 </button>
             </div>
             
-            {/* Search Bar - Integrated in Header Area */}
+            {/* Search Bar */}
             {currentView === 'SHOP' && (
-                <div className="mt-3 relative pb-1">
+                <div className="mt-4 relative pb-1">
                    <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none pb-1">
-                       <svg className="h-4 w-4 text-slate-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                       <svg className="h-5 w-5 text-slate-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                            <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
                        </svg>
                    </div>
                    <input 
                       type="text" 
                       placeholder="Search for 'milk', 'chips'..." 
-                      className="w-full pl-10 pr-4 py-2.5 bg-slate-100 border-none rounded-xl text-sm font-semibold text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-brand-DEFAULT/20 focus:bg-white transition-all shadow-inner"
+                      className="w-full pl-11 pr-4 py-3 bg-slate-100/50 border border-slate-200 rounded-2xl text-sm font-semibold text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-brand-DEFAULT/20 focus:bg-white focus:border-brand-light transition-all shadow-inner"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                    />
@@ -472,18 +472,18 @@ const App: React.FC = () => {
         {currentView === 'SHOP' && (
           <div className="animate-fade-in pb-8">
             
-            {/* 1. Map Widget (Collapsible/Hero) */}
-            <div className="px-4 py-4">
-                <div className="h-40 rounded-2xl overflow-hidden shadow-sm border border-slate-200 relative group">
-                     <div className="absolute top-2 left-2 z-[400] bg-white/90 backdrop-blur px-2 py-1 rounded-lg shadow-sm border border-slate-100">
-                        <div className="flex items-center gap-1.5">
-                            <span className="relative flex h-2 w-2">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                            </span>
-                            <span className="text-[10px] font-black uppercase text-slate-700">Live Tracking</span>
-                        </div>
+            {/* 1. Map Widget (Full width on mobile) */}
+            <div className="px-4 py-6 md:px-0">
+                <div className="h-[280px] rounded-[2rem] overflow-hidden shadow-float border border-white/60 relative group">
+                     {/* Glass Overlay Top Left */}
+                     <div className="absolute top-3 left-3 z-[400] glass-panel px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1.5 pointer-events-none">
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                        <span className="text-[10px] font-black uppercase text-slate-700">Live</span>
                      </div>
+                     
                      <MapVisualizer 
                         stores={availableStores} 
                         userLat={user.location?.lat ?? null}
@@ -496,34 +496,42 @@ const App: React.FC = () => {
                         className="h-full w-full"
                         onLocationUpdate={handleLocationUpdate}
                     />
-                    <div className="absolute bottom-0 left-0 right-0 bg-white/90 backdrop-blur-sm p-2 flex justify-between items-center z-[400] border-t border-slate-100">
-                         <div className="flex gap-2">
-                             <button onClick={() => setOrderMode('DELIVERY')} className={`text-[10px] font-bold px-3 py-1 rounded-full transition-colors ${orderMode === 'DELIVERY' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-500'}`}>Delivery</button>
-                             <button onClick={() => setOrderMode('PICKUP')} className={`text-[10px] font-bold px-3 py-1 rounded-full transition-colors ${orderMode === 'PICKUP' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-500'}`}>Pickup</button>
-                         </div>
-                         <div className="text-[10px] font-bold text-slate-500 flex items-center gap-1">
-                             <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-brand-DEFAULT" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4zm-6 3a1 1 0 112 0 1 1 0 01-2 0zm7-1a1 1 0 100 2 1 1 0 000-2z" clipRule="evenodd" /></svg>
-                             {isLoadingStores ? 'Scanning area...' : activeStore ? `${activeStore.name} • ${activeStore.distance}` : 'Select a store on map'}
+
+                    {/* Controls Overlay Bottom */}
+                    <div className="absolute bottom-3 right-3 z-[400] flex flex-col gap-2">
+                         <div className="glass-panel p-1.5 rounded-xl flex flex-col gap-1 shadow-lg">
+                             <button 
+                                onClick={() => setOrderMode('DELIVERY')} 
+                                className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all ${orderMode === 'DELIVERY' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
+                             >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                             </button>
+                             <button 
+                                onClick={() => setOrderMode('PICKUP')} 
+                                className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all ${orderMode === 'PICKUP' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
+                             >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
+                             </button>
                          </div>
                     </div>
                 </div>
             </div>
 
-            {/* 2. Categories (Horizontal Scroll) */}
+            {/* 2. Categories (Modern Pills) */}
             {!searchTerm && (
-                <div className="mb-6">
-                    <div className="flex gap-3 overflow-x-auto px-4 pb-2 hide-scrollbar snap-x">
+                <div className="mb-8">
+                    <div className="flex gap-4 overflow-x-auto px-5 pb-4 hide-scrollbar snap-x">
                         {PRODUCT_FAMILIES.map((family) => {
                             const isSelected = selectedFamilyId === family.id;
                             return (
                                 <button
                                     key={family.id}
                                     onClick={() => setSelectedFamilyId(isSelected ? null : family.id)}
-                                    className="flex flex-col items-center gap-2 min-w-[76px] snap-start group"
+                                    className="flex flex-col items-center gap-2 min-w-[72px] snap-start group"
                                 >
-                                    <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shadow-sm border transition-all duration-300 relative overflow-hidden ${isSelected ? 'bg-slate-800 border-slate-900 scale-105' : `${family.theme} border-transparent group-hover:scale-105 bg-white`}`}>
-                                        <div className="absolute inset-0 bg-white/40"></div>
-                                        <div className="relative z-10 filter drop-shadow-md emoji-real scale-90">{family.emoji}</div>
+                                    <div className={`w-16 h-16 rounded-[1.2rem] flex items-center justify-center text-3xl shadow-sm border transition-all duration-300 relative overflow-hidden ${isSelected ? 'bg-slate-900 border-slate-900 scale-105 shadow-lg' : `${family.theme} border-transparent group-hover:scale-105 bg-white shadow-sm`}`}>
+                                        <div className="absolute inset-0 bg-gradient-to-br from-white/40 to-transparent pointer-events-none"></div>
+                                        <div className={`relative z-10 filter drop-shadow-md emoji-real scale-90 ${isSelected ? 'brightness-125' : ''}`}>{family.emoji}</div>
                                     </div>
                                     <span className={`text-[10px] font-bold text-center leading-tight transition-colors ${isSelected ? 'text-slate-900' : 'text-slate-500 group-hover:text-slate-700'}`}>
                                         {family.title}
@@ -536,13 +544,13 @@ const App: React.FC = () => {
             )}
 
             {/* 3. Product Grid */}
-            <div className="px-4">
-              <div className="flex items-center justify-between mb-3">
-                 <h2 className="text-lg font-black text-slate-800">{searchTerm ? 'Search Results' : selectedFamilyId ? 'Category Items' : 'Recommended'}</h2>
-                 <span className="text-[10px] font-bold text-slate-400 bg-white border border-slate-100 px-2 py-1 rounded-full">{filteredProducts.length} items</span>
+            <div className="px-5">
+              <div className="flex items-center justify-between mb-5">
+                 <h2 className="text-xl font-black text-slate-900 tracking-tight">{searchTerm ? 'Search Results' : selectedFamilyId ? 'Category Items' : 'Recommended'}</h2>
+                 <span className="text-[10px] font-bold text-slate-500 bg-white border border-slate-200 px-2.5 py-1 rounded-full shadow-sm">{filteredProducts.length} items</span>
               </div>
               
-              <div className="grid grid-cols-2 gap-3 pb-24">
+              <div className="grid grid-cols-2 gap-4 pb-32">
                     {filteredProducts.map((product) => (
                     <StickerProduct 
                         key={product.id} 
@@ -622,7 +630,7 @@ const App: React.FC = () => {
       )}
 
       {/* --- BOTTOM NAVIGATION --- */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 px-6 py-2 flex justify-between items-center z-50 pb-safe">
+      <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-slate-100 px-6 py-3 flex justify-between items-center z-50 pb-safe shadow-[0_-10px_40px_-10px_rgba(0,0,0,0.05)]">
           {[
             { 
               id: 'SHOP', 
@@ -655,18 +663,18 @@ const App: React.FC = () => {
                 <button 
                     key={item.id}
                     onClick={() => setCurrentView(item.id as any)}
-                    className={`flex flex-col items-center justify-center w-16 h-14 rounded-xl transition-all duration-200 group relative ${isActive ? '' : 'hover:bg-slate-50'}`}
+                    className={`flex flex-col items-center justify-center w-16 h-12 rounded-2xl transition-all duration-300 group relative ${isActive ? '' : 'hover:bg-slate-50'}`}
                 >
-                    <span className={`transition-transform duration-200 ${isActive ? 'text-slate-900 -translate-y-1' : 'text-slate-400 group-hover:text-slate-600'}`}>
+                    <span className={`transition-transform duration-300 ${isActive ? 'text-slate-900 -translate-y-1' : 'text-slate-400 group-hover:text-slate-600'}`}>
                         {isActive ? item.activeIcon : item.icon}
                     </span>
-                    <span className={`text-[10px] font-bold ${isActive ? 'text-slate-900 opacity-100' : 'text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity'}`}>{item.label}</span>
+                    <span className={`text-[10px] font-bold ${isActive ? 'text-slate-900 opacity-100 translate-y-0.5' : 'text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity translate-y-1'}`}>{item.label}</span>
                     
                     {/* Active Indicator Dot */}
-                    {isActive && <span className="absolute bottom-1 w-1 h-1 bg-slate-900 rounded-full"></span>}
+                    {isActive && <span className="absolute bottom-1 w-1 h-1 bg-slate-900 rounded-full animate-pop"></span>}
 
                     {/* Badge */}
-                    {item.badge ? <span className="absolute top-2 right-2 min-w-[16px] h-4 bg-brand-DEFAULT text-white text-[9px] font-black flex items-center justify-center rounded-full border-2 border-white px-0.5">{item.badge}</span> : null}
+                    {item.badge ? <span className="absolute top-1 right-2 min-w-[16px] h-4 bg-brand-DEFAULT text-white text-[9px] font-black flex items-center justify-center rounded-full border-2 border-white px-0.5 shadow-sm">{item.badge}</span> : null}
                 </button>
               );
           })}
