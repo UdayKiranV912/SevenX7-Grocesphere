@@ -52,7 +52,7 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
   const getDistance = (lat1: number, lng1: number, lat2: number, lng2: number) => {
     const R = 6371; 
     const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lng2 - lng1) * Math.PI / 180; // Fixed: Renamed dLng to dLon
+    const dLon = (lng2 - lng1) * Math.PI / 180; 
     const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
               Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
               Math.sin(dLon/2) * Math.sin(dLon/2);
@@ -74,9 +74,10 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
         center: [startLat, startLng],
         zoom: 15,
         zoomControl: false,
-        attributionControl: false,
+        attributionControl: false, // Clean look
       });
 
+      // Use a cleaner, high-contrast map tile for better readability
       L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
         attribution: '',
         maxZoom: 20,
@@ -84,19 +85,32 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
       }).addTo(mapRef.current);
 
       // Detect manual interaction to disable "Follow Me"
-      mapRef.current.on('dragstart', () => { isUserInteractingRef.current = true; setIsFollowing(false); });
-      mapRef.current.on('zoomstart', () => { isUserInteractingRef.current = true; setIsFollowing(false); });
+      mapRef.current.on('dragstart', () => { 
+          isUserInteractingRef.current = true; 
+          setIsFollowing(false); 
+      });
+      mapRef.current.on('zoomstart', () => { 
+          isUserInteractingRef.current = true; 
+          setIsFollowing(false); 
+      });
     }
+
+    // ResizeObserver to ensure map fills container correctly
+    const resizeObserver = new ResizeObserver(() => {
+        if(mapRef.current) mapRef.current.invalidateSize();
+    });
+    resizeObserver.observe(mapContainerRef.current);
 
     // Cleanup on unmount
     return () => {
       if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
+      resizeObserver.disconnect();
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
       }
     };
-  }, []); // Run once
+  }, []); 
 
   // --- 2. Live Geolocation Tracking ---
   const startTracking = useCallback(() => {
@@ -129,27 +143,27 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
                   const pulseIcon = L.divIcon({
                       className: 'user-marker',
                       html: `
-                        <div class="relative w-8 h-8 flex items-center justify-center">
+                        <div class="relative w-6 h-6 flex items-center justify-center">
                             <div class="absolute inset-0 bg-blue-500 rounded-full opacity-20 animate-ping"></div>
-                            <div class="absolute inset-1 bg-blue-500 rounded-full opacity-40"></div>
-                            <div class="relative w-3 h-3 bg-blue-600 border-2 border-white rounded-full shadow-md"></div>
+                            <div class="absolute inset-0.5 bg-white rounded-full shadow-md"></div>
+                            <div class="absolute inset-1.5 bg-blue-600 rounded-full"></div>
                         </div>
                       `,
-                      iconSize: [32, 32],
-                      iconAnchor: [16, 16]
+                      iconSize: [24, 24],
+                      iconAnchor: [12, 12]
                   });
                   userMarkerRef.current = L.marker(latLng, { icon: pulseIcon, zIndexOffset: 1000 }).addTo(mapRef.current);
               } else {
                   userMarkerRef.current.setLatLng(latLng);
               }
 
-              // B. Update Accuracy Circle
+              // B. Update Accuracy Circle (Subtle)
               if (!accuracyCircleRef.current) {
                   accuracyCircleRef.current = L.circle(latLng, {
                       radius: acc,
                       color: 'transparent',
                       fillColor: '#3b82f6',
-                      fillOpacity: 0.1
+                      fillOpacity: 0.08
                   }).addTo(mapRef.current);
               } else {
                   accuracyCircleRef.current.setLatLng(latLng);
@@ -157,7 +171,8 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
               }
 
               // C. "Follow Me" Logic
-              if (!isUserInteractingRef.current) {
+              // Only follow if explicit state says so AND user isn't interacting manually
+              if (isFollowing && !isUserInteractingRef.current) {
                   mapRef.current.flyTo(latLng, 16, { animate: true, duration: 1 });
               }
 
@@ -177,7 +192,7 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
               maximumAge: 0
           }
       );
-  }, [onLocationUpdate]);
+  }, [onLocationUpdate, isFollowing]);
 
   useEffect(() => {
       startTracking();
@@ -192,52 +207,62 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
       storeMarkersRef.current.forEach(m => mapRef.current.removeLayer(m));
       storeMarkersRef.current = [];
 
+      // Collect bounds to fit map later
+      const bounds = L.latLngBounds([]);
+      if (userMarkerRef.current) {
+          bounds.extend(userMarkerRef.current.getLatLng());
+      }
+
       // Add Store Markers
       stores.forEach(store => {
           const isSelected = selectedStore?.id === store.id;
           
-          let color = '#f97316'; // orange
-          let svg = `<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>`;
+          let colorClass = 'bg-orange-500';
+          let ringClass = 'ring-orange-100';
+          let svg = `<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>`;
           
           if (store.type === 'produce') { 
-              color = '#10b981'; 
-              svg = `<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`;
+              colorClass = 'bg-emerald-500';
+              ringClass = 'ring-emerald-100';
+              svg = `<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`;
           }
           if (store.type === 'dairy') { 
-              color = '#3b82f6'; 
-              svg = `<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>`;
+              colorClass = 'bg-blue-500'; 
+              ringClass = 'ring-blue-100';
+              svg = `<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>`;
           }
           
+          // Using Tailwind classes directly in HTML string is tricky with Leaflet divIcon, 
+          // so we use inline styles mixed with standard classes.
+          // Note: Tailwind classes are available globally in this app.
+          const iconHtml = `
+            <div class="relative flex items-center justify-center transition-all duration-300 ${isSelected ? 'scale-125 z-50' : 'hover:scale-110'}">
+                <div class="w-10 h-10 ${colorClass} rounded-full flex items-center justify-center shadow-lg border-[3px] border-white relative z-10">
+                    ${svg}
+                </div>
+                <div class="absolute -bottom-1.5 w-3 h-3 bg-black/20 rounded-full blur-[2px]"></div>
+                ${isSelected ? `<div class="absolute -inset-2 ${ringClass} rounded-full ring-4 opacity-50 animate-pulse"></div>` : ''}
+            </div>
+          `;
+
           const icon = L.divIcon({
-              className: 'custom-pin',
-              html: `<div style="
-                background-color: ${color};
-                width: ${isSelected ? 48 : 36}px;
-                height: ${isSelected ? 48 : 36}px;
-                border-radius: 50% 50% 50% 0;
-                transform: rotate(-45deg);
-                border: 3px solid white;
-                box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-                display: flex; align-items: center; justify-content: center;
-                cursor: pointer;
-                transition: all 0.3s ease;
-              ">
-                <div style="transform: rotate(45deg);">${svg}</div>
-              </div>`,
-              iconSize: [48, 48],
-              iconAnchor: [24, 48]
+              className: 'bg-transparent', // Reset default leaflet styling
+              html: iconHtml,
+              iconSize: [40, 40],
+              iconAnchor: [20, 38] // Anchor at bottom center
           });
 
           const marker = L.marker([store.lat, store.lng], { icon, zIndexOffset: isSelected ? 500 : 0 })
               .addTo(mapRef.current)
               .on('click', () => {
                   onSelectStore(store);
-                  mapRef.current.flyTo([store.lat, store.lng], 16);
+                  mapRef.current.flyTo([store.lat, store.lng], 16, { duration: 0.8 });
                   isUserInteractingRef.current = true; // Stop following user
                   setIsFollowing(false);
               });
           
           storeMarkersRef.current.push(marker);
+          bounds.extend([store.lat, store.lng]);
       });
 
       // Render Route if valid
@@ -247,18 +272,45 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
           const userLatLng = userMarkerRef.current.getLatLng();
           const storeLatLng = [selectedStore.lat, selectedStore.lng];
           
-          routeLineRef.current = L.polyline([userLatLng, storeLatLng], {
-              color: '#10b981',
-              weight: 4,
-              opacity: 0.8,
-              dashArray: '10, 10',
+          // Modern solid route line with shadow effect
+          // First draw a wider, transparent line for "glow/shadow"
+          const shadowLine = L.polyline([userLatLng, storeLatLng], {
+              color: 'black',
+              weight: 8,
+              opacity: 0.1,
               lineCap: 'round'
           }).addTo(mapRef.current);
+          routeLineRef.current = L.layerGroup([
+              shadowLine,
+              L.polyline([userLatLng, storeLatLng], {
+                  color: '#10b981', // Brand Emerald
+                  weight: 5,
+                  opacity: 1,
+                  lineCap: 'round',
+                  dashArray: '1, 10', // Dotted effect for walking/delivery
+                  dashOffset: '0'
+              })
+          ]).addTo(mapRef.current);
 
           const d = getDistance(userLatLng.lat, userLatLng.lng, selectedStore.lat, selectedStore.lng);
           setDistanceText(`${d.toFixed(1)} km`);
+
+          // Fit map to route (User <-> Store)
+          // Add significant padding so markers aren't on edge
+          const routeBounds = L.latLngBounds([userLatLng, storeLatLng]);
+          mapRef.current.fitBounds(routeBounds, { padding: [80, 80], maxZoom: 16, animate: true });
+          setIsFollowing(false);
+          isUserInteractingRef.current = true; // Ensure auto-follow doesn't override this
+
       } else {
           setDistanceText('');
+
+          // If showing stores list (not route), fit map to show all visible stores + user
+          if (stores.length > 0 && !selectedStore && !isUserInteractingRef.current && bounds.isValid()) {
+             mapRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 15, animate: true });
+             // We allow map to settle here, but user can still tap "Recenter" to follow.
+             setIsFollowing(false);
+          }
       }
 
   }, [stores, selectedStore, showRoute]);
@@ -269,32 +321,26 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
       isUserInteractingRef.current = false;
       setIsFollowing(true);
       if (userMarkerRef.current && mapRef.current) {
-          mapRef.current.flyTo(userMarkerRef.current.getLatLng(), 17, { animate: true });
+          mapRef.current.flyTo(userMarkerRef.current.getLatLng(), 17, { animate: true, duration: 0.8 });
       } else {
           startTracking(); // Restart if lost
       }
   };
 
   return (
-    <div className={`w-full bg-slate-100 rounded-[2rem] overflow-hidden relative shadow-inner border-[3px] border-white group ${className}`}>
+    <div className={`w-full bg-slate-50 rounded-[2rem] overflow-hidden relative shadow-sm border border-slate-100 group ${className}`}>
       <div ref={mapContainerRef} className="w-full h-full z-0 relative outline-none" style={{ minHeight: '100%' }} />
 
-      {/* --- Top Left: GPS Status --- */}
-      <div className="absolute top-4 left-4 z-[400] flex flex-col gap-2 pointer-events-none">
-          <div className="bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/50 shadow-sm flex items-center gap-2 animate-fade-in">
+      {/* --- Top Left: GPS Indicator Pill --- */}
+      <div className="absolute top-4 left-4 z-[400] pointer-events-none">
+          <div className="bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-full border border-slate-100 shadow-sm flex items-center gap-2 animate-fade-in transition-all">
               {gpsStatus === 'LOCKED' ? (
                   <>
-                    <div className="flex gap-0.5 items-end h-3">
-                        <div className={`w-1 rounded-sm ${accuracy && accuracy < 50 ? 'bg-emerald-500' : 'bg-slate-300'} h-1.5`}></div>
-                        <div className={`w-1 rounded-sm ${accuracy && accuracy < 20 ? 'bg-emerald-500' : 'bg-slate-300'} h-2`}></div>
-                        <div className={`w-1 rounded-sm ${accuracy && accuracy < 10 ? 'bg-emerald-500' : 'bg-slate-300'} h-3`}></div>
-                    </div>
-                    <div className="flex flex-col">
-                        <span className="text-[9px] font-black text-slate-800 leading-none uppercase">GPS Active</span>
-                        <span className="text-[8px] font-bold text-slate-400 leading-none">
-                             ±{accuracy ? Math.round(accuracy) : '-'}m
-                        </span>
-                    </div>
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                    <span className="text-[10px] font-bold text-slate-600">GPS Active</span>
                   </>
               ) : gpsStatus === 'SEARCHING' ? (
                   <>
@@ -302,17 +348,20 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
                      <span className="text-[10px] font-bold text-slate-500">Locating...</span>
                   </>
               ) : (
-                  <span className="text-[10px] font-bold text-red-500">GPS Off</span>
+                  <>
+                    <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                    <span className="text-[10px] font-bold text-slate-500">GPS Off</span>
+                  </>
               )}
           </div>
       </div>
 
-      {/* --- Top Right: Recenter Button --- */}
+      {/* --- Top Right: Recenter FAB --- */}
       <div className="absolute top-4 right-4 z-[400]">
           <button
             onClick={handleRecenter}
-            className={`w-10 h-10 bg-white rounded-xl shadow-lg border flex items-center justify-center transition-all active:scale-95 ${
-                isFollowing ? 'text-blue-500 border-blue-200 bg-blue-50' : 'text-slate-400 border-slate-100 hover:text-blue-500'
+            className={`w-10 h-10 bg-white rounded-full shadow-lg border border-slate-100 flex items-center justify-center transition-all active:scale-95 ${
+                isFollowing ? 'text-blue-500 bg-blue-50 border-blue-200' : 'text-slate-400 hover:text-blue-500'
             }`}
           >
              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -321,40 +370,49 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
           </button>
       </div>
 
-      {/* --- Bottom: Store Info Overlay --- */}
+      {/* --- Bottom: Store Card (Floating) --- */}
       {selectedStore && (
-        <div className="absolute bottom-3 left-3 right-3 bg-white/95 backdrop-blur-xl px-4 py-3 rounded-2xl shadow-lg border border-white/50 z-[400] animate-fade-in-up flex items-center gap-3">
-             <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white shadow-sm border border-white ${
-                 selectedStore.type === 'produce' ? 'bg-emerald-500' : selectedStore.type === 'dairy' ? 'bg-blue-500' : 'bg-orange-500'
-             }`}>
-                {selectedStore.type === 'produce' ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                ) : selectedStore.type === 'dairy' ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
-                ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                )}
-             </div>
-             <div className="flex-1 min-w-0">
-                 <h4 className="font-black text-slate-800 text-sm truncate">{selectedStore.name}</h4>
-                 <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500">
-                     <span>{distanceText || selectedStore.distance}</span>
-                     {mode === 'DELIVERY' && <span className="text-emerald-600">• ~12 min</span>}
+        <div className="absolute bottom-4 left-4 right-4 z-[400] animate-slide-up">
+            <div className="bg-white p-3 rounded-2xl shadow-xl border border-slate-100 flex items-center gap-3">
+                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-white shadow-md ${
+                     selectedStore.type === 'produce' ? 'bg-emerald-500' : selectedStore.type === 'dairy' ? 'bg-blue-500' : 'bg-orange-500'
+                 }`}>
+                    {selectedStore.type === 'produce' ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    ) : selectedStore.type === 'dairy' ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+                    ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                    )}
                  </div>
-             </div>
-             {enableExternalNavigation && (
-                <button 
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        window.open(`https://www.google.com/maps/dir/?api=1&destination=${selectedStore.lat},${selectedStore.lng}`, '_blank');
-                    }}
-                    className="w-9 h-9 bg-slate-900 text-white rounded-full flex items-center justify-center hover:bg-black transition-colors shadow-md"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                    </svg>
-                </button>
-             )}
+                 <div className="flex-1 min-w-0">
+                     <h4 className="font-black text-slate-900 text-sm truncate">{selectedStore.name}</h4>
+                     <div className="flex items-center gap-2 mt-0.5">
+                         <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-md">
+                             {distanceText || selectedStore.distance}
+                         </span>
+                         {mode === 'DELIVERY' && (
+                             <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-1">
+                                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                 ~12 min
+                             </span>
+                         )}
+                     </div>
+                 </div>
+                 {enableExternalNavigation && (
+                    <button 
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            window.open(`https://www.google.com/maps/dir/?api=1&destination=${selectedStore.lat},${selectedStore.lng}`, '_blank');
+                        }}
+                        className="w-10 h-10 bg-slate-900 text-white rounded-full flex items-center justify-center hover:bg-black transition-colors shadow-lg active:scale-95"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                        </svg>
+                    </button>
+                 )}
+            </div>
         </div>
       )}
     </div>
