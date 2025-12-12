@@ -268,8 +268,8 @@ export const MyOrders: React.FC<MyOrdersProps> = ({ userLocation, onPayNow, user
                             <MapVisualizer
                                 stores={[mapStore]}
                                 selectedStore={mapStore}
-                                userLat={userLocation?.lat || 0}
-                                userLng={userLocation?.lng || 0}
+                                userLat={userLocation?.lat ?? null}
+                                userLng={userLocation?.lng ?? null}
                                 userAccuracy={userLocation?.accuracy}
                                 onRequestLocation={onRequestLocation}
                                 mode={order.mode}

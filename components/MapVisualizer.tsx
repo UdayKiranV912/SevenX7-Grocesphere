@@ -1,398 +1,345 @@
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Store, OrderMode } from '../types';
 
 interface MapVisualizerProps {
   stores: Store[];
+  // Initial fallback location from parent
   userLat: number | null;
   userLng: number | null;
-  userAccuracy?: number | null; // Accuracy in meters
+  userAccuracy?: number;
   selectedStore: Store | null;
   onSelectStore: (store: Store) => void;
   className?: string;
-  mode: OrderMode; 
-  showRoute?: boolean; // Explicit control for showing route line
-  enableExternalNavigation?: boolean; // Control for Google Maps button
+  mode: OrderMode;
+  showRoute?: boolean;
+  enableExternalNavigation?: boolean;
+  // Callback to inform parent of significant location changes
+  onLocationUpdate?: (location: { lat: number; lng: number; accuracy: number }) => void;
   onRequestLocation?: () => void;
 }
 
-export const MapVisualizer: React.FC<MapVisualizerProps> = ({ 
-  stores, 
-  userLat, 
-  userLng, 
+export const MapVisualizer: React.FC<MapVisualizerProps> = ({
+  stores,
+  userLat: initialLat,
+  userLng: initialLng,
   userAccuracy,
-  selectedStore, 
-  onSelectStore, 
+  selectedStore,
+  onSelectStore,
   className = "h-48",
   mode,
   showRoute = false,
   enableExternalNavigation = false,
-  onRequestLocation
+  onLocationUpdate,
 }) => {
-  const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<any>(null);
-  const markersRef = useRef<any[]>([]);
+  // --- Refs for Leaflet Instances (Mutable, no re-renders) ---
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<any>(null);
   const userMarkerRef = useRef<any>(null);
   const accuracyCircleRef = useRef<any>(null);
+  const storeMarkersRef = useRef<any[]>([]);
   const routeLineRef = useRef<any>(null);
-  
-  // Logic Refs
-  const hasInitialCenteredRef = useRef(false);
-  const needsCenteringRef = useRef(false); // New: Tracks if user specifically requested centering
-  const prevStoreIdRef = useRef<string | null>(null);
-  
-  // Center fallback: Bangalore or Store
-  const mapCenterLat = userLat || (selectedStore ? selectedStore.lat - 0.008 : 12.9716);
-  const mapCenterLng = userLng || (selectedStore ? selectedStore.lng - 0.005 : 77.5946);
-  
-  const [dynamicDistance, setDynamicDistance] = useState<string>('');
-  const [isLocating, setIsLocating] = useState(false);
+  const watchIdRef = useRef<number | null>(null);
+  const isUserInteractingRef = useRef<boolean>(false);
 
-  // Haversine Distance Calc
-  const calculateDist = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-    const R = 6371; // km
+  // --- Local State for UI ---
+  const [gpsStatus, setGpsStatus] = useState<'SEARCHING' | 'LOCKED' | 'DENIED' | 'ERROR'>('SEARCHING');
+  const [accuracy, setAccuracy] = useState<number | null>(userAccuracy || null);
+  const [isFollowing, setIsFollowing] = useState(true);
+  const [distanceText, setDistanceText] = useState('');
+
+  // --- Helper: Haversine Distance ---
+  const getDistance = (lat1: number, lng1: number, lat2: number, lng2: number) => {
+    const R = 6371; 
     const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const dLon = (lng2 - lng1) * Math.PI / 180; // Fixed: Renamed dLng to dLon
     const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
               Math.sin(dLon/2) * Math.sin(dLon/2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return (R * c).toFixed(1) + ' km';
+    return R * c; // km
   };
 
-  // Update distance based on props updates
-  useEffect(() => {
-      if (selectedStore && userLat && userLng) {
-          const dist = calculateDist(userLat, userLng, selectedStore.lat, selectedStore.lng);
-          setDynamicDistance(dist);
-      } else {
-        setDynamicDistance('');
-      }
-  }, [userLat, userLng, selectedStore]);
-
-  const centerOnUser = (lat: number, lng: number, accuracy: number | null | undefined) => {
-      if (!mapInstanceRef.current) return;
-      
-      const L = (window as any).L;
-      if (!L) return;
-
-      mapInstanceRef.current.invalidateSize();
-
-      // If accuracy is poor (>100m), fit bounds to the circle so user sees the uncertainty area
-      if (accuracy && accuracy > 100) {
-          const bounds = L.latLng(lat, lng).toBounds(accuracy * 2); // approximate
-          mapInstanceRef.current.fitBounds(bounds, { animate: true });
-      } else {
-          // Good accuracy: Fly to point with high zoom
-          mapInstanceRef.current.flyTo([lat, lng], 18, { animate: true, duration: 1.2 });
-      }
-  };
-
-  const handleLocateMe = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    setIsLocating(true);
-    needsCenteringRef.current = true; // Mark that we MUST center on next update
-
-    // Trigger parent request
-    if (onRequestLocation) {
-        onRequestLocation();
-    }
-
-    // Force map size invalidation immediately (fixes modal render issues)
-    if (mapInstanceRef.current) {
-        mapInstanceRef.current.invalidateSize();
-        
-        // If we already have location, force immediate center
-        if (userLat && userLng) {
-            centerOnUser(userLat, userLng, userAccuracy);
-            
-            // Artificial delay to show spinner interaction feedback
-            setTimeout(() => {
-                setIsLocating(false);
-                needsCenteringRef.current = false;
-            }, 800);
-        } else {
-            // Wait for props to update (fallback timeout)
-            setTimeout(() => setIsLocating(false), 8000); 
-        }
-    }
-  };
-
-  const openGoogleMaps = (e?: React.MouseEvent) => {
-    if (e) {
-        e.stopPropagation();
-        e.preventDefault();
-    }
-    if (selectedStore) {
-        const url = `https://www.google.com/maps/dir/?api=1&destination=${selectedStore.lat},${selectedStore.lng}`;
-        window.open(url, '_blank');
-    }
-  };
-
-  // Map Initialization & Updates
+  // --- 1. Initialize Map ---
   useEffect(() => {
     const L = (window as any).L;
-    if (!L || !mapContainerRef.current) return;
+    if (!mapContainerRef.current || !L) return;
 
-    if (!mapInstanceRef.current) {
-      mapInstanceRef.current = L.map(mapContainerRef.current, {
-        center: [mapCenterLat, mapCenterLng],
-        zoom: 14,
+    if (!mapRef.current) {
+      // Default center: Bengaluru or Initial Props
+      const startLat = initialLat || 12.9716;
+      const startLng = initialLng || 77.5946;
+
+      mapRef.current = L.map(mapContainerRef.current, {
+        center: [startLat, startLng],
+        zoom: 15,
         zoomControl: false,
         attributionControl: false,
-        trackResize: true
       });
 
-      // Use CartoDB Voyager
       L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
         attribution: '',
         maxZoom: 20,
         subdomains: 'abcd'
-      }).addTo(mapInstanceRef.current);
-      
-      // Critical: Ensure map renders correctly if container size changes
-      setTimeout(() => {
-          mapInstanceRef.current.invalidateSize();
-      }, 250);
-    } 
+      }).addTo(mapRef.current);
 
-    let justCenteredOnUser = false;
-
-    // --- 1. Handle User Location Marker ---
-    if (userLat && userLng) {
-        const latLng = [userLat, userLng];
-        
-        // Custom Pulse Marker
-        if (!userMarkerRef.current) {
-             userMarkerRef.current = L.marker(latLng, {
-                icon: L.divIcon({
-                    className: 'user-pin-live',
-                    html: `
-                      <div class="relative w-full h-full flex items-center justify-center">
-                        <div class="w-4 h-4 bg-blue-500 rounded-full border-[3px] border-white shadow-lg z-20 relative"></div>
-                        <div class="absolute w-12 h-12 bg-blue-500/30 rounded-full animate-ping z-10"></div>
-                        <div class="absolute w-20 h-20 bg-blue-400/10 rounded-full z-0"></div>
-                      </div>
-                    `,
-                    iconSize: [24, 24],
-                    iconAnchor: [12, 12]
-                }),
-                zIndexOffset: 1000
-             }).addTo(mapInstanceRef.current);
-        } else {
-            userMarkerRef.current.setLatLng(latLng);
-            userMarkerRef.current.setZIndexOffset(1000);
-        }
-
-        // Accuracy Circle
-        if (userAccuracy) {
-            if (!accuracyCircleRef.current) {
-                accuracyCircleRef.current = L.circle(latLng, {
-                    radius: userAccuracy,
-                    color: '#3b82f6',
-                    weight: 1,
-                    opacity: 0,
-                    fillColor: '#3b82f6',
-                    fillOpacity: 0.1
-                }).addTo(mapInstanceRef.current);
-            } else {
-                accuracyCircleRef.current.setLatLng(latLng);
-                accuracyCircleRef.current.setRadius(userAccuracy);
-            }
-        }
-        
-        // --- Centering Logic ---
-        // Priority: 
-        // 1. Explicit Request ("Locate Me" / needsCenteringRef)
-        // 2. Initial Load + Delivery Mode (Show User & Nearby) -> Center User
-        // 3. Initial Load + No Store Selected -> Center User
-        
-        const isDelivery = mode === 'DELIVERY';
-        const shouldCenterOnUser = 
-            needsCenteringRef.current || 
-            (!hasInitialCenteredRef.current && (isDelivery || !selectedStore));
-
-        if (shouldCenterOnUser) {
-            centerOnUser(userLat, userLng, userAccuracy);
-            
-            // Only mark handled if we actually have data
-            if (userLat && userLng) {
-                needsCenteringRef.current = false;
-                hasInitialCenteredRef.current = true;
-                setIsLocating(false); // Stop spinner
-                justCenteredOnUser = true; // Flag to prevent immediate route bounds override
-            }
-        }
-
-    } else {
-        // Cleanup if location lost
-        if (userMarkerRef.current) {
-            mapInstanceRef.current.removeLayer(userMarkerRef.current);
-            userMarkerRef.current = null;
-        }
-        if (accuracyCircleRef.current) {
-             mapInstanceRef.current.removeLayer(accuracyCircleRef.current);
-             accuracyCircleRef.current = null;
-        }
+      // Detect manual interaction to disable "Follow Me"
+      mapRef.current.on('dragstart', () => { isUserInteractingRef.current = true; setIsFollowing(false); });
+      mapRef.current.on('zoomstart', () => { isUserInteractingRef.current = true; setIsFollowing(false); });
     }
 
-    // --- 2. Update Store Markers ---
-    markersRef.current.forEach(m => mapInstanceRef.current.removeLayer(m));
-    markersRef.current = [];
-
-    const createIcon = (type: Store['type'], isSelected: boolean) => {
-       let color = '#ef4444'; 
-       let emoji = '🏪';
-       let borderColor = isSelected ? '#000' : '#fff';
-       
-       if (type === 'produce') { color = '#22c55e'; emoji = '🥦'; } 
-       else if (type === 'dairy') { color = '#3b82f6'; emoji = '🥛'; }
-
-       const size = isSelected ? 48 : 36;
-
-       return L.divIcon({
-          className: 'custom-pin',
-          html: `<div style="
-            background-color: ${color};
-            width: ${size}px;
-            height: ${size}px;
-            border-radius: 50% 50% 50% 5px;
-            transform: rotate(-45deg);
-            border: ${isSelected ? '3px' : '2px'} solid ${borderColor};
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-            display: flex; align-items: center; justify-content: center;
-            z-index: ${isSelected ? 100 : 1};
-            cursor: pointer;
-          ">
-            <div style="transform: rotate(45deg); font-size: ${isSelected ? 24 : 18}px; line-height: 1;">${emoji}</div>
-          </div>`,
-          iconSize: [size, size],
-          iconAnchor: [size/2, size] 
-       });
+    // Cleanup on unmount
+    return () => {
+      if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
     };
+  }, []); // Run once
 
-    stores.forEach(store => {
-      const isSelected = selectedStore?.id === store.id;
-      const marker = L.marker([store.lat, store.lng], {
-        icon: createIcon(store.type, isSelected),
-        zIndexOffset: isSelected ? 500 : 0
-      }).addTo(mapInstanceRef.current);
+  // --- 2. Live Geolocation Tracking ---
+  const startTracking = useCallback(() => {
+      if (!navigator.geolocation) {
+          setGpsStatus('ERROR');
+          return;
+      }
 
-      marker.on('click', () => {
-          onSelectStore(store);
-          // Only zoom if NOT in route mode (route handles its own bounds)
-          if (!showRoute) {
-            mapInstanceRef.current.flyTo([store.lat, store.lng], 16, { animate: true, duration: 1 });
+      setGpsStatus('SEARCHING');
+      
+      if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
+
+      const L = (window as any).L;
+
+      watchIdRef.current = navigator.geolocation.watchPosition(
+          (pos) => {
+              const { latitude, longitude, accuracy: acc } = pos.coords;
+              if (latitude === 0 && longitude === 0) return; // Ignore bad data
+
+              setGpsStatus('LOCKED');
+              setAccuracy(acc);
+
+              if (!mapRef.current) return;
+
+              // A. Update User Marker (Blue Dot)
+              const latLng = [latitude, longitude];
+              
+              if (!userMarkerRef.current) {
+                  // Create Pulse Icon
+                  const pulseIcon = L.divIcon({
+                      className: 'user-marker',
+                      html: `
+                        <div class="relative w-8 h-8 flex items-center justify-center">
+                            <div class="absolute inset-0 bg-blue-500 rounded-full opacity-20 animate-ping"></div>
+                            <div class="absolute inset-1 bg-blue-500 rounded-full opacity-40"></div>
+                            <div class="relative w-3 h-3 bg-blue-600 border-2 border-white rounded-full shadow-md"></div>
+                        </div>
+                      `,
+                      iconSize: [32, 32],
+                      iconAnchor: [16, 16]
+                  });
+                  userMarkerRef.current = L.marker(latLng, { icon: pulseIcon, zIndexOffset: 1000 }).addTo(mapRef.current);
+              } else {
+                  userMarkerRef.current.setLatLng(latLng);
+              }
+
+              // B. Update Accuracy Circle
+              if (!accuracyCircleRef.current) {
+                  accuracyCircleRef.current = L.circle(latLng, {
+                      radius: acc,
+                      color: 'transparent',
+                      fillColor: '#3b82f6',
+                      fillOpacity: 0.1
+                  }).addTo(mapRef.current);
+              } else {
+                  accuracyCircleRef.current.setLatLng(latLng);
+                  accuracyCircleRef.current.setRadius(acc);
+              }
+
+              // C. "Follow Me" Logic
+              if (!isUserInteractingRef.current) {
+                  mapRef.current.flyTo(latLng, 16, { animate: true, duration: 1 });
+              }
+
+              // D. Inform Parent (Throttled/Debounced in logic, direct call here)
+              if (onLocationUpdate) {
+                  onLocationUpdate({ lat: latitude, lng: longitude, accuracy: acc });
+              }
+          },
+          (err) => {
+              console.warn("GPS Error", err);
+              if (err.code === 1) setGpsStatus('DENIED');
+              else setGpsStatus('ERROR');
+          },
+          {
+              enableHighAccuracy: true,
+              timeout: 10000,
+              maximumAge: 0
           }
+      );
+  }, [onLocationUpdate]);
+
+  useEffect(() => {
+      startTracking();
+  }, [startTracking]);
+
+  // --- 3. Render Stores & Route ---
+  useEffect(() => {
+      if (!mapRef.current) return;
+      const L = (window as any).L;
+
+      // Clear existing store markers
+      storeMarkersRef.current.forEach(m => mapRef.current.removeLayer(m));
+      storeMarkersRef.current = [];
+
+      // Add Store Markers
+      stores.forEach(store => {
+          const isSelected = selectedStore?.id === store.id;
+          
+          let color = '#f97316'; // orange
+          let emoji = '🏪';
+          if (store.type === 'produce') { color = '#10b981'; emoji = '🥦'; }
+          if (store.type === 'dairy') { color = '#3b82f6'; emoji = '🥛'; }
+          
+          const icon = L.divIcon({
+              className: 'custom-pin',
+              html: `<div style="
+                background-color: ${color};
+                width: ${isSelected ? 44 : 34}px;
+                height: ${isSelected ? 44 : 34}px;
+                border-radius: 50% 50% 50% 0;
+                transform: rotate(-45deg);
+                border: 3px solid white;
+                box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+                display: flex; align-items: center; justify-content: center;
+                cursor: pointer;
+              ">
+                <div style="transform: rotate(45deg); font-size: ${isSelected ? 20 : 16}px;">${emoji}</div>
+              </div>`,
+              iconSize: [40, 40],
+              iconAnchor: [20, 40]
+          });
+
+          const marker = L.marker([store.lat, store.lng], { icon, zIndexOffset: isSelected ? 500 : 0 })
+              .addTo(mapRef.current)
+              .on('click', () => {
+                  onSelectStore(store);
+                  mapRef.current.flyTo([store.lat, store.lng], 16);
+                  isUserInteractingRef.current = true; // Stop following user
+                  setIsFollowing(false);
+              });
+          
+          storeMarkersRef.current.push(marker);
       });
-      markersRef.current.push(marker);
-    });
 
-    // --- 3. Route Drawing & Bounds ---
-    if (routeLineRef.current) {
-        mapInstanceRef.current.removeLayer(routeLineRef.current);
-        routeLineRef.current = null;
-    }
+      // Render Route if valid
+      if (routeLineRef.current) mapRef.current.removeLayer(routeLineRef.current);
+      
+      if (showRoute && selectedStore && userMarkerRef.current) {
+          const userLatLng = userMarkerRef.current.getLatLng();
+          const storeLatLng = [selectedStore.lat, selectedStore.lng];
+          
+          routeLineRef.current = L.polyline([userLatLng, storeLatLng], {
+              color: '#10b981',
+              weight: 4,
+              opacity: 0.8,
+              dashArray: '10, 10',
+              lineCap: 'round'
+          }).addTo(mapRef.current);
 
-    // Always draw route if requested and data is available
-    if (selectedStore && showRoute && userLat && userLng) {
-        const latlngs = [
-            [userLat, userLng],
-            [selectedStore.lat, selectedStore.lng]
-        ];
-        
-        routeLineRef.current = L.polyline(latlngs, {
-            color: '#059669', 
-            weight: 6,
-            opacity: 0.8,
-            dashArray: '10, 10', 
-            lineCap: 'round',
-        }).addTo(mapInstanceRef.current);
+          const d = getDistance(userLatLng.lat, userLatLng.lng, selectedStore.lat, selectedStore.lng);
+          setDistanceText(`${d.toFixed(1)} km`);
+      } else {
+          setDistanceText('');
+      }
 
-        // --- Bounds Logic ---
-        // Only fit bounds if we DID NOT just center on the user explicitly.
-        // This ensures "Locate Me" or initial Delivery mode centering respects user focus,
-        // while allowing other route views to show the full path.
-        if (!needsCenteringRef.current && !justCenteredOnUser) {
-            const storeChanged = prevStoreIdRef.current !== selectedStore.id;
-            
-            // Refit bounds if store changed OR if we are in a mode where fitting is preferred (like tracking)
-            // For now, we fit if store changed to avoid jarring movements during minor updates
-            if (storeChanged || !hasInitialCenteredRef.current) {
-                const bounds = L.latLngBounds(latlngs);
-                mapInstanceRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 16, animate: true });
-            }
-        }
-        
-        prevStoreIdRef.current = selectedStore.id;
-    }
+  }, [stores, selectedStore, showRoute]);
 
-  }, [stores, userLat, userLng, userAccuracy, selectedStore, onSelectStore, mode, showRoute, enableExternalNavigation]);
+  // --- Handlers ---
+  const handleRecenter = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      isUserInteractingRef.current = false;
+      setIsFollowing(true);
+      if (userMarkerRef.current && mapRef.current) {
+          mapRef.current.flyTo(userMarkerRef.current.getLatLng(), 17, { animate: true });
+      } else {
+          startTracking(); // Restart if lost
+      }
+  };
 
   return (
-    <div className={`w-full bg-slate-100 rounded-[2.5rem] overflow-hidden relative shadow-inner border border-white ${className}`}>
-      <div ref={mapContainerRef} className="w-full h-full z-0 outline-none" style={{ minHeight: '100%' }}></div>
+    <div className={`w-full bg-slate-100 rounded-[2rem] overflow-hidden relative shadow-inner border-[3px] border-white group ${className}`}>
+      <div ref={mapContainerRef} className="w-full h-full z-0 relative outline-none" style={{ minHeight: '100%' }} />
 
-      <button 
-        onClick={handleLocateMe}
-        className={`absolute top-4 left-4 z-[1000] w-11 h-11 bg-white rounded-2xl shadow-lg border border-slate-100 flex items-center justify-center transition-all cursor-pointer active:scale-95 ${
-            isLocating ? 'text-brand-DEFAULT ring-2 ring-brand-light' : 
-            !userLat ? 'text-slate-300' : 'text-slate-700 hover:text-brand-DEFAULT'
-        }`}
-        title="Recenter Map"
-        type="button"
-      >
-        {isLocating ? (
-             <div className="w-5 h-5 border-2 border-slate-200 border-t-brand-DEFAULT rounded-full animate-spin"></div>
-        ) : (
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                <path fillRule="evenodd" d="M11.54 22.351l.07.04.028.016a.76.76 0 00.723 0l.028-.015.071-.041a16.975 16.975 0 001.144-.742 19.58 19.58 0 002.683-2.282c1.944-1.99 3.963-4.98 3.963-8.827a8.25 8.25 0 00-16.5 0c0 3.846 2.02 6.837 3.963 8.827a19.58 19.58 0 002.682 2.282 16.975 16.975 0 001.145.742zM12 13.5a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
-            </svg>
-        )}
-      </button>
-
-      {/* Navigate Button */}
-      {enableExternalNavigation && selectedStore && mode === 'PICKUP' && (
-          <button 
-            onClick={openGoogleMaps}
-            className="absolute top-4 right-4 z-[1000] bg-white text-brand-dark pl-3 pr-4 py-2.5 rounded-2xl shadow-lg border border-slate-100 flex items-center gap-2 hover:bg-slate-50 active:scale-95 transition-all font-black text-xs animate-scale-in group cursor-pointer"
-          >
-             <div className="w-6 h-6 bg-brand-light rounded-full flex items-center justify-center group-hover:bg-brand-DEFAULT group-hover:text-white transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 9l3 3m0 0l-3 3m3-3H8m13 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-             </div>
-             <span>Navigate</span>
-          </button>
-      )}
-
-      {/* Selected Store Info */}
-      {selectedStore && (
-        <div 
-            onClick={mode === 'PICKUP' ? openGoogleMaps : undefined}
-            className={`absolute bottom-3 left-3 right-3 bg-white/95 backdrop-blur-md px-4 py-3 rounded-2xl shadow-soft-xl flex items-center justify-between border border-white/50 z-[1000] animate-fade-in-up ${mode === 'PICKUP' ? 'cursor-pointer active:scale-[0.98] transition-transform' : ''}`}
-        >
-             <div className="flex items-center gap-3 overflow-hidden">
-                 <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xl shadow-sm text-white flex-shrink-0 ${
-                    selectedStore.type === 'produce' ? 'bg-emerald-500' : selectedStore.type === 'dairy' ? 'bg-sky-500' : 'bg-orange-500'
-                 }`}>
-                    {selectedStore.type === 'produce' ? '🥦' : selectedStore.type === 'dairy' ? '🥛' : '🏪'}
-                 </div>
-                 <div className="min-w-0">
-                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide flex items-center gap-1">
-                        {mode === 'DELIVERY' ? 'Delivering From' : 'Pickup At'}
+      {/* --- Top Left: GPS Status --- */}
+      <div className="absolute top-4 left-4 z-[400] flex flex-col gap-2 pointer-events-none">
+          <div className="bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/50 shadow-sm flex items-center gap-2 animate-fade-in">
+              {gpsStatus === 'LOCKED' ? (
+                  <>
+                    <div className="flex gap-0.5 items-end h-3">
+                        <div className={`w-1 rounded-sm ${accuracy && accuracy < 50 ? 'bg-emerald-500' : 'bg-slate-300'} h-1.5`}></div>
+                        <div className={`w-1 rounded-sm ${accuracy && accuracy < 20 ? 'bg-emerald-500' : 'bg-slate-300'} h-2`}></div>
+                        <div className={`w-1 rounded-sm ${accuracy && accuracy < 10 ? 'bg-emerald-500' : 'bg-slate-300'} h-3`}></div>
                     </div>
-                    <div className="text-sm font-black text-slate-800 truncate">{selectedStore.name}</div>
+                    <div className="flex flex-col">
+                        <span className="text-[9px] font-black text-slate-800 leading-none uppercase">GPS Active</span>
+                        <span className="text-[8px] font-bold text-slate-400 leading-none">
+                             ±{accuracy ? Math.round(accuracy) : '-'}m
+                        </span>
+                    </div>
+                  </>
+              ) : gpsStatus === 'SEARCHING' ? (
+                  <>
+                     <div className="w-3 h-3 border-2 border-slate-200 border-t-blue-500 rounded-full animate-spin"></div>
+                     <span className="text-[10px] font-bold text-slate-500">Locating...</span>
+                  </>
+              ) : (
+                  <span className="text-[10px] font-bold text-red-500">GPS Off</span>
+              )}
+          </div>
+      </div>
+
+      {/* --- Top Right: Recenter Button --- */}
+      <div className="absolute top-4 right-4 z-[400]">
+          <button
+            onClick={handleRecenter}
+            className={`w-10 h-10 bg-white rounded-xl shadow-lg border flex items-center justify-center transition-all active:scale-95 ${
+                isFollowing ? 'text-blue-500 border-blue-200 bg-blue-50' : 'text-slate-400 border-slate-100 hover:text-blue-500'
+            }`}
+          >
+             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+             </svg>
+          </button>
+      </div>
+
+      {/* --- Bottom: Store Info Overlay --- */}
+      {selectedStore && (
+        <div className="absolute bottom-3 left-3 right-3 bg-white/95 backdrop-blur-xl px-4 py-3 rounded-2xl shadow-lg border border-white/50 z-[400] animate-fade-in-up flex items-center gap-3">
+             <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xl shadow-sm border border-white ${
+                 selectedStore.type === 'produce' ? 'bg-emerald-100' : selectedStore.type === 'dairy' ? 'bg-blue-100' : 'bg-orange-100'
+             }`}>
+                {selectedStore.type === 'produce' ? '🥦' : selectedStore.type === 'dairy' ? '🥛' : '🏪'}
+             </div>
+             <div className="flex-1 min-w-0">
+                 <h4 className="font-black text-slate-800 text-sm truncate">{selectedStore.name}</h4>
+                 <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500">
+                     <span>{distanceText || selectedStore.distance}</span>
+                     {mode === 'DELIVERY' && <span className="text-emerald-600">• ~12 min</span>}
                  </div>
              </div>
-             
-             {showRoute && userLat && (
-               <div className="text-right whitespace-nowrap pl-2 border-l border-slate-100 ml-2">
-                  <div className="text-[10px] font-bold text-slate-400 uppercase">Dist.</div>
-                  <div className="text-sm font-black text-brand-DEFAULT">{dynamicDistance || selectedStore.distance}</div>
-               </div>
+             {enableExternalNavigation && (
+                <button 
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        window.open(`https://www.google.com/maps/dir/?api=1&destination=${selectedStore.lat},${selectedStore.lng}`, '_blank');
+                    }}
+                    className="w-9 h-9 bg-slate-900 text-white rounded-full flex items-center justify-center hover:bg-black transition-colors shadow-md"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                    </svg>
+                </button>
              )}
         </div>
       )}

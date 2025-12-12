@@ -104,85 +104,42 @@ const App: React.FC = () => {
   } | null>(null);
   
   const hasFetchedStores = useRef(false);
-  const watchIdRef = useRef<number | null>(null);
-
   const totalCartItems = cart.reduce((acc, item) => acc + item.quantity, 0);
 
-  // Function to trigger location detection - IMPROVED ACCURACY SETTINGS & AUTO-ADDRESS
-  const detectLocation = useCallback(() => {
-    if (!navigator.geolocation) {
-        console.warn("Geolocation not supported by browser.");
-        return;
-    }
+  // --- LOCATION HANDLING ---
+  // Optimized callback from MapVisualizer. 
+  // MapVisualizer handles high-freq updates, we only act on them here for data fetching.
+  const handleLocationUpdate = useCallback(async (loc: { lat: number; lng: number; accuracy: number }) => {
+      // 1. Update User State (This is throttled by MapVisualizer logic if needed, but safe to update here)
+      setUser(prev => {
+          // Avoid re-renders if pos hasn't changed much
+          if (prev.location && Math.abs(prev.location.lat - loc.lat) < 0.0001 && Math.abs(prev.location.lng - loc.lng) < 0.0001) {
+              return prev;
+          }
+          return { ...prev, location: { lat: loc.lat, lng: loc.lng, accuracy: loc.accuracy } };
+      });
 
-    if (watchIdRef.current !== null) {
-        navigator.geolocation.clearWatch(watchIdRef.current);
-    }
-    
-    // Pass user ID to determine if we should load mock stores
-    const isDemoUser = user.id === 'demo-user';
+      // 2. Fetch Stores (if not done)
+      if (!hasFetchedStores.current) {
+          const isDemoUser = user.id === 'demo-user';
+          initializeStores(loc.lat, loc.lng, isDemoUser);
+      }
 
-    const updatePosition = async (position: GeolocationPosition) => {
-        const { latitude, longitude, accuracy } = position.coords;
-        
-        // Log accuracy for debugging (optional)
-        if (accuracy > 100) {
-           console.log(`Low accuracy GPS signal: ${accuracy}m`);
-        }
-
-        setUser(prev => ({ 
-            ...prev, 
-            location: { lat: latitude, lng: longitude, accuracy } 
-        }));
-
-        // Reverse Geocode to get address text automatically
-        // This ensures the "current address" is detected and shown
-        try {
-             // Only auto-fill if we don't have an address yet or if it's the demo address
-             const shouldFetchAddress = !deliveryAddress || deliveryAddress === 'Indiranagar, Bangalore';
-             
-             if (shouldFetchAddress) {
-                 const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
-                 const data = await res.json();
-                 if (data && data.display_name) {
-                     setDeliveryAddress(data.display_name);
-                     setUser(prev => ({ ...prev, address: data.display_name }));
-                 }
-             }
-        } catch (e) {
-            console.error("Auto-address detection failed:", e);
-        }
-        
-        if (!hasFetchedStores.current) {
-            initializeStores(latitude, longitude, isDemoUser);
-        }
-    };
-
-    // First get a quick fix (less aggressive caching: 5s max age)
-    navigator.geolocation.getCurrentPosition(
-        updatePosition,
-        (error) => console.warn("Initial location error:", error.message),
-        { enableHighAccuracy: true, timeout: 5000, maximumAge: 5000 }
-    );
-
-    // Then watch for high-accuracy updates
-    watchIdRef.current = navigator.geolocation.watchPosition(
-        updatePosition,
-        (err) => console.warn("Watch position error:", err.message),
-        { 
-            enableHighAccuracy: true, 
-            maximumAge: 0, // No cache for live updates
-            timeout: 20000 
-        }
-    );
-
-  }, [user.id, deliveryAddress]); 
-
-  useEffect(() => {
-    return () => {
-        if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
-    };
-  }, []);
+      // 3. Fetch Address (if missing)
+      if (!user.address) {
+          try {
+              const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${loc.lat}&lon=${loc.lng}&zoom=18&addressdetails=1`);
+              const data = await res.json();
+              if (data && data.display_name) {
+                  const addr = data.display_name.split(',').slice(0, 3).join(','); // Shorten
+                  setUser(prev => ({ ...prev, address: addr }));
+                  setDeliveryAddress(addr);
+              }
+          } catch (e) {
+              console.warn("Auto-address fetch failed");
+          }
+      }
+  }, [user.id, user.address]);
 
   // Fetch both Registered DB Stores and fallback OSM stores
   const initializeStores = async (lat: number, lng: number, isDemo: boolean) => {
@@ -276,12 +233,6 @@ const App: React.FC = () => {
     };
     loadInventory();
   }, [activeStore]);
-
-  useEffect(() => {
-    if (user.isAuthenticated) {
-        detectLocation();
-    }
-  }, [user.isAuthenticated, detectLocation]);
 
   // Search Logic
   useEffect(() => {
@@ -558,18 +509,18 @@ const App: React.FC = () => {
                     <button onClick={() => setOrderMode('DELIVERY')} className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-wide transition-all ${orderMode === 'DELIVERY' ? 'bg-slate-900 text-white' : 'text-slate-400'}`}>Delivery</button>
                     <button onClick={() => setOrderMode('PICKUP')} className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-wide transition-all ${orderMode === 'PICKUP' ? 'bg-slate-900 text-white' : 'text-slate-400'}`}>Pickup</button>
                 </div>
-                <div className="h-48 rounded-[2rem] overflow-hidden shadow-card border border-white relative z-0">
+                {/* Increased Height for better visibility */}
+                <div className="h-64 rounded-[2rem] overflow-hidden shadow-card border border-white relative z-0">
                      <MapVisualizer 
                         stores={availableStores} 
-                        userLat={user.location?.lat || 0}
-                        userLng={user.location?.lng || 0}
-                        userAccuracy={user.location?.accuracy}
+                        userLat={user.location?.lat ?? null}
+                        userLng={user.location?.lng ?? null}
                         selectedStore={activeStore}
                         onSelectStore={setActiveStore}
                         mode={orderMode}
                         showRoute={orderMode === 'DELIVERY'}
                         className="h-full"
-                        onRequestLocation={detectLocation}
+                        onLocationUpdate={handleLocationUpdate}
                     />
                 </div>
             </div>
@@ -640,7 +591,19 @@ const App: React.FC = () => {
                 userLocation={user.location} 
                 onPayNow={handlePayForExistingOrder} 
                 userId={user.id} 
-                onRequestLocation={detectLocation} // Connect location service here
+                onRequestLocation={() => {
+                     // Force update via simple geolocation if map isn't visible
+                     if (navigator.geolocation) {
+                         navigator.geolocation.getCurrentPosition(
+                             (pos) => handleLocationUpdate({ 
+                                 lat: pos.coords.latitude, 
+                                 lng: pos.coords.longitude, 
+                                 accuracy: pos.coords.accuracy 
+                             }),
+                             () => alert("Could not fetch location.")
+                         );
+                     }
+                }}
             />
         )}
 
