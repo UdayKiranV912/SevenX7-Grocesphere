@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { CartItem, DeliveryType, Store, Product } from '../types';
 import { MapVisualizer } from './MapVisualizer';
 import { INITIAL_PRODUCTS, MOCK_STORES } from '../constants';
+import { AddressSearch } from './AddressSearch';
 
 // --- Helper Component for Row Animation ---
 interface CartItemRowProps {
@@ -25,64 +26,89 @@ const CartItemRow: React.FC<CartItemRowProps> = ({ item, onUpdateQuantity, index
     }
   }, [item.quantity]);
 
-  const mrp = item.mrp;
-  const savings = mrp && mrp > item.price ? (mrp - item.price) * item.quantity : 0;
-
   return (
     <div 
-       className={`p-3 rounded-[1.2rem] shadow-sm flex items-center gap-3 animate-slide-up border transition-all duration-300 ${
+       className={`p-3 pr-4 rounded-2xl shadow-sm flex items-center gap-4 animate-slide-up border transition-all duration-300 ${
            isHighlighted 
              ? 'bg-brand-light border-brand-DEFAULT/30 scale-[1.02] shadow-md' 
-             : 'bg-white border-slate-100/60 hover:border-slate-200'
+             : 'bg-white border-slate-100/50 hover:shadow-md'
        }`}
        style={{ animationDelay: `${index * 50}ms` }}
      >
-        <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center text-3xl shrink-0 transition-transform duration-300 group-hover:scale-110 relative overflow-hidden shadow-inner border border-slate-100">
-            <span className="emoji-real text-2xl filter drop-shadow">{item.emoji}</span>
-            {savings > 0 && (
-                <div className="absolute bottom-0 left-0 right-0 bg-emerald-500 text-white text-[8px] font-bold text-center py-0.5 leading-none">
-                    SAVE ₹{savings}
-                </div>
-            )}
+        {/* Emoji */}
+        <div className="w-14 h-14 bg-slate-50 rounded-xl flex items-center justify-center text-3xl shrink-0 transition-transform duration-300 group-hover:scale-110">
+            {item.emoji}
         </div>
         
-        <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
+        {/* Details */}
+        <div className="flex-1 min-w-0 flex flex-col gap-0.5">
            <h3 className="font-bold text-slate-800 text-sm truncate leading-tight">{item.name}</h3>
            {item.selectedBrand && item.selectedBrand !== 'Generic' && (
-               <span className="text-[9px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-md w-fit">{item.selectedBrand}</span>
+               <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded w-fit">{item.selectedBrand}</span>
            )}
-           <div className="flex items-baseline gap-2 mt-0.5">
-               <span className="text-sm font-black text-slate-900">₹{item.price}</span>
-               {mrp && mrp > item.price && (
-                   <span className="text-xs text-slate-400 line-through decoration-slate-300">₹{mrp}</span>
-               )}
-           </div>
+           <div className="text-xs font-bold text-slate-400 mt-0.5">₹{item.price}</div>
         </div>
         
-        <div className="flex flex-col items-center gap-1 bg-slate-100/80 p-1 rounded-xl">
+        {/* Controls */}
+        <div className="flex items-center gap-2 bg-slate-100/50 p-1 rounded-xl">
             <button 
-              onClick={() => onUpdateQuantity(item.id, 1)}
-              className="w-7 h-7 flex items-center justify-center bg-white rounded-lg shadow-sm text-brand-DEFAULT hover:bg-brand-DEFAULT hover:text-white font-bold transition-all active:scale-90 touch-manipulation"
+              onClick={() => onUpdateQuantity(item.id, -1)}
+              className="w-8 h-8 flex items-center justify-center bg-white rounded-lg shadow-sm text-slate-600 hover:text-red-500 font-bold transition-all active:scale-90 touch-manipulation"
             >
-              +
+              −
             </button>
-            <span className={`w-7 text-center text-sm font-black text-slate-800 py-0.5 transition-all duration-300 ${isHighlighted ? 'scale-125 text-brand-DEFAULT' : ''}`}>
+            <span className={`w-6 text-center text-sm font-black text-slate-800 transition-all duration-300 ${isHighlighted ? 'scale-125 text-brand-DEFAULT' : ''}`}>
                 {item.quantity}
             </span>
             <button 
-              onClick={() => onUpdateQuantity(item.id, -1)}
-              className="w-7 h-7 flex items-center justify-center bg-white rounded-lg shadow-sm text-slate-400 hover:text-red-500 font-bold transition-all active:scale-90 touch-manipulation"
+              onClick={() => onUpdateQuantity(item.id, 1)}
+              className="w-8 h-8 flex items-center justify-center bg-white rounded-lg shadow-sm text-slate-600 hover:text-brand-DEFAULT font-bold transition-all active:scale-90 touch-manipulation"
             >
-              −
+              +
             </button>
         </div>
      </div>
   );
 };
 
-interface CartDetailsProps {
+// --- Helper for Suggestions ---
+interface SuggestionsProps {
+    suggestions: Product[];
+    onAddProduct: (p: Product) => void;
+}
+
+const SuggestionsList: React.FC<SuggestionsProps> = ({ suggestions, onAddProduct }) => {
+    if (suggestions.length === 0) return null;
+    return (
+        <div className="mt-4 pt-2 border-t border-slate-100">
+            <h3 className="text-xs font-black text-slate-400 uppercase tracking-wide mb-3 px-1">You might have missed</h3>
+            <div className="flex gap-3 overflow-x-auto pb-2 hide-scrollbar -mx-2 px-2 snap-x">
+                {suggestions.map((product) => (
+                    <div key={product.id} className="min-w-[130px] bg-slate-50 p-3 rounded-2xl border border-slate-100 flex flex-col snap-start flex-shrink-0">
+                        <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-2xl self-center mb-2 shadow-sm">
+                            {product.emoji}
+                        </div>
+                        <div className="font-bold text-slate-800 text-xs truncate mb-1">{product.name}</div>
+                        <div className="flex justify-between items-center mt-auto pt-2">
+                            <span className="text-xs font-bold text-slate-500">₹{product.price}</span>
+                            <button 
+                                onClick={() => onAddProduct(product)}
+                                className="w-6 h-6 bg-white text-brand-DEFAULT rounded-lg flex items-center justify-center font-bold hover:bg-brand-DEFAULT hover:text-white transition-all shadow-sm active:scale-90 touch-manipulation"
+                            >
+                                +
+                            </button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+// --- Shared Cart Details Component ---
+export interface CartDetailsProps {
   cart: CartItem[];
-  onProceedToPay: (details: { deliveryType: DeliveryType; scheduledTime?: string; isPayLater?: boolean; splits: any }) => void;
+  onProceedToPay: (details: { deliveryType: DeliveryType; scheduledTime?: string; isPayLater?: boolean; splits: any; location?: { lat: number; lng: number } }) => void;
   onUpdateQuantity: (productId: string, delta: number) => void;
   onAddProduct: (product: Product) => void;
   mode: 'DELIVERY' | 'PICKUP';
@@ -91,7 +117,7 @@ interface CartDetailsProps {
   onAddressChange: (address: string) => void;
   activeStore: Store | null;
   stores: Store[]; 
-  userLocation: { lat: number; lng: number; accuracy?: number } | null;
+  userLocation: { lat: number; lng: number } | null;
   isPage?: boolean;
   onClose?: () => void;
 }
@@ -113,12 +139,36 @@ export const CartDetails: React.FC<CartDetailsProps> = ({
 }) => {
   const [deliveryType, setDeliveryType] = useState<DeliveryType>('INSTANT');
   const [scheduledTime, setScheduledTime] = useState('');
+  const [minScheduledTime, setMinScheduledTime] = useState('');
   
-  // LOGIC
+  // Local state to track location for map visualization (starts with GPS, updates with Search)
+  const [visualLocation, setVisualLocation] = useState<{lat: number; lng: number} | null>(userLocation);
+
+  // Sync visual location if userLocation changes initially and we haven't manually searched
+  useEffect(() => {
+    if (userLocation && !visualLocation) {
+        setVisualLocation(userLocation);
+    }
+  }, [userLocation]);
+  
+  // CONSTANTS
   const MINIMUM_ORDER_VALUE = 1000; 
   const BASE_DELIVERY_FEE = 30;
 
-  // Group Cart Items
+  const getLocalISO = (date: Date) => {
+    const offset = date.getTimezoneOffset() * 60000; 
+    return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+  };
+
+  useEffect(() => {
+    const now = new Date();
+    now.setHours(now.getHours() + 1); // Minimum 1 hour ahead
+    const isoString = getLocalISO(now);
+    setMinScheduledTime(isoString);
+    if (!scheduledTime) setScheduledTime(isoString);
+  }, []);
+
+  // Group Cart Items by Store
   const groupedItems = React.useMemo(() => {
     const groups: Record<string, CartItem[]> = {};
     cart.forEach(item => {
@@ -131,72 +181,114 @@ export const CartDetails: React.FC<CartDetailsProps> = ({
   const totalItems = cart.reduce((acc, item) => acc + item.quantity, 0);
   const itemsTotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
   
+  // Calculate Fees
   const numStores = Object.keys(groupedItems).length;
+  // If MOV Met (>1000), Delivery is Free (Store Pays). Else Customer pays.
   const isMovMet = itemsTotal >= MINIMUM_ORDER_VALUE;
+  
+  // Logic: 
+  // Delivery Fee is now part of the TOTAL payable to Store.
+  // Store will settle with driver later.
   const deliveryFee = mode === 'DELIVERY' ? (isMovMet ? 0 : BASE_DELIVERY_FEE * numStores) : 0;
+  
+  // Total to Pay ONLINE (To Store) includes delivery fee now
   const onlinePayableTotal = itemsTotal + deliveryFee;
 
+  const isPayLaterAllowed = () => {
+      if (deliveryType !== 'SCHEDULED' || !scheduledTime) return false;
+      const slotTime = new Date(scheduledTime).getTime();
+      const now = new Date().getTime();
+      const diffMinutes = (slotTime - now) / 60000;
+      return diffMinutes > 45; 
+  };
+
+  const handleAddressSelect = (address: string, lat: number, lng: number) => {
+    onAddressChange(address);
+    setVisualLocation({ lat, lng });
+  };
+
   const preparePaymentData = (isPayLater: boolean) => {
+      // Create the split object for the Payment Gateway / Order Service
       const splits = {
-          storeAmount: onlinePayableTotal, 
+          storeAmount: onlinePayableTotal, // Customer pays Items + Delivery to Store
           storeUpi: activeStore?.upiId || 'store@upi',
           handlingFee: 0, 
           adminUpi: 'uday@admin',
-          deliveryFee: deliveryFee, 
+          deliveryFee: deliveryFee, // Internal Record
           driverUpi: 'driver@upi'
       };
-      onProceedToPay({ deliveryType, scheduledTime, isPayLater, splits });
+
+      onProceedToPay({ 
+          deliveryType, 
+          scheduledTime, 
+          isPayLater,
+          splits,
+          location: visualLocation || undefined
+      });
   };
 
+  if (cart.length === 0 && isPage) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[60vh] text-center px-6 animate-fade-in">
+        <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center text-5xl mb-6 shadow-soft text-slate-300 border border-slate-100">
+           🛒
+        </div>
+        <h3 className="text-2xl font-black text-slate-800">Your Cart is Empty</h3>
+        <p className="text-slate-400 font-medium mt-2 mb-8 max-w-xs mx-auto">Looks like you haven't added anything yet. Start exploring fresh items!</p>
+        <button 
+           onClick={onClose}
+           className="bg-slate-900 text-white font-bold py-4 px-10 rounded-2xl shadow-lg hover:scale-105 transition-all active:scale-95 touch-manipulation"
+        >
+          Start Shopping
+        </button>
+      </div>
+    );
+  }
+
+  // Determine which stores to show on the map (all stores present in the cart)
   const cartStoreIds = Object.keys(groupedItems);
   const cartStoresForMap = stores.filter(s => cartStoreIds.includes(s.id));
   const mapStores = cartStoresForMap.length > 0 ? cartStoresForMap : (activeStore ? [activeStore] : []);
 
-  // Icon Helper
-  const getStoreIcon = (type: string) => {
-      if (type === 'produce') return <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>;
-      if (type === 'dairy') return <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>;
-      return <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>;
-  };
-
   return (
-    <div className={`flex flex-col h-full relative ${isPage ? 'bg-[#F8FAFC]' : 'bg-[#F8FAFC]'}`}>
+    <div className={`flex flex-col h-full ${isPage ? 'bg-[#F8FAFC]' : 'bg-[#F8FAFC]'}`}>
       
-      {/* 1. Header Section */}
-      <div className="shrink-0 bg-white/95 backdrop-blur-xl z-20 shadow-sm rounded-t-[2.5rem]">
-          {!isPage && (
-            <div 
-              className="w-full flex justify-center pt-5 pb-3 cursor-pointer"
-              onClick={onClose}
-            >
-              <div className="w-12 h-1.5 bg-slate-200 rounded-full" />
-            </div>
-          )}
+      {/* Header (Modal) */}
+      {!isPage && (
+        <div 
+          className="w-full flex justify-center pt-5 pb-3 cursor-pointer bg-white rounded-t-[2.5rem] shadow-soft relative z-20"
+          onClick={onClose}
+        >
+          <div className="w-12 h-1.5 bg-slate-200 rounded-full" />
+        </div>
+      )}
 
-          <div className={`px-6 pb-6 flex justify-between items-end border-b border-slate-100 ${isPage ? 'pt-8' : ''}`}>
-             <div>
-                <h2 className="text-3xl font-black text-slate-800 tracking-tight">Checkout</h2>
-                <div className="flex items-center gap-2 mt-1">
-                    <span className={`w-2 h-2 rounded-full animate-pulse ${mode === 'DELIVERY' ? 'bg-emerald-500' : 'bg-blue-500'}`}></span>
-                    <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">
-                        {mode === 'DELIVERY' ? 'Fast Delivery' : 'Store Pickup'}
-                    </p>
-                </div>
-             </div>
-             <div className="bg-slate-100 text-slate-600 px-4 py-2 rounded-full text-xs font-black shadow-inner border border-slate-200">
-                {totalItems} items
-             </div>
-          </div>
+      {/* Header (Title) */}
+      <div className={`px-6 pb-6 bg-white/90 backdrop-blur-md flex justify-between items-end sticky top-0 z-10 border-b border-slate-100 ${isPage ? 'pt-8' : ''}`}>
+         <div>
+            <h2 className="text-3xl font-black text-slate-800 tracking-tight">Checkout</h2>
+            <div className="flex items-center gap-2 mt-1">
+                <span className="w-2 h-2 rounded-full bg-brand-DEFAULT animate-pulse"></span>
+                <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">
+                    {mode === 'DELIVERY' ? 'Fast Delivery' : 'Store Pickup'}
+                </p>
+            </div>
+         </div>
+         <div className="bg-slate-100 text-slate-600 px-4 py-1.5 rounded-full text-xs font-black shadow-inner">
+            {totalItems} items
+         </div>
       </div>
 
-      {/* 2. Scrollable Content */}
-      <div className="flex-1 overflow-y-auto px-5 py-6 hide-scrollbar space-y-8"> 
-         <div className="rounded-[2.5rem] overflow-hidden shadow-card border-[3px] border-white h-48 relative ring-1 ring-slate-100 shrink-0">
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto px-5 py-6 hide-scrollbar space-y-6 pb-48">
+         
+         {/* Map Section */}
+         <div className="rounded-[2rem] overflow-hidden shadow-card border border-white h-48 relative">
             <MapVisualizer 
                 stores={mapStores}
-                userLat={userLocation?.lat || 0}
-                userLng={userLocation?.lng || 0}
-                selectedStore={activeStore} 
+                userLat={visualLocation?.lat || 0}
+                userLng={visualLocation?.lng || 0}
+                selectedStore={activeStore} // Just highlights the last active one
                 onSelectStore={() => {}}
                 mode={mode}
                 showRoute={true} 
@@ -205,87 +297,207 @@ export const CartDetails: React.FC<CartDetailsProps> = ({
             />
          </div>
 
+         {/* GROUPED Order List */}
          <div className="space-y-6">
            {Object.entries(groupedItems).map(([storeId, items]: [string, CartItem[]]) => {
-              const storeInfo = items[0]; 
+              const storeInfo = items[0]; // Use first item to get store name/type
+              // Robust Lookup: Check availableStores first, then fallback to MOCK_STORES static list
+              const storeObj = stores.find(s => s.id === storeId) || MOCK_STORES.find(s => s.id === storeId);
+              
+              // Filter suggestions strictly for THIS store group
+              const availableIds = storeObj?.availableProductIds || [];
+              const cartIdsInThisStore = new Set(items.map(i => i.originalProductId));
+              
+              const storeSuggestions = INITIAL_PRODUCTS
+                  .filter(p => availableIds.includes(p.id) && !cartIdsInThisStore.has(p.id))
+                  .slice(0, 5); // Limit to 5 per store
+
+              const borderColorClass = storeInfo.storeType === 'produce' ? 'border-l-emerald-500' : 
+                                       storeInfo.storeType === 'dairy' ? 'border-l-blue-500' : 'border-l-orange-500';
+
               return (
-                  <div key={storeId} className="animate-fade-in-up">
-                      <div className={`flex items-center gap-3 mb-3 px-2 py-1`}>
-                           <div className={`w-8 h-8 rounded-full flex items-center justify-center text-lg shadow-sm bg-white border border-slate-100`}>
-                               {getStoreIcon(storeInfo.storeType)}
+                  <div key={storeId} className={`bg-white p-5 rounded-[2rem] shadow-sm border-t border-r border-b border-slate-100 border-l-[6px] ${borderColorClass} animate-fade-in-up`}>
+                      {/* Store Header */}
+                      <div className="flex items-center gap-3 mb-4 border-b border-slate-50 pb-3">
+                           <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm shadow-sm text-white ${
+                               storeInfo.storeType === 'produce' ? 'bg-emerald-500' : 
+                               storeInfo.storeType === 'dairy' ? 'bg-blue-500' : 'bg-orange-500'
+                           }`}>
+                               {storeInfo.storeType === 'produce' ? '🥦' : storeInfo.storeType === 'dairy' ? '🥛' : '🏪'}
                            </div>
                            <div className="flex-1">
-                               <h3 className="font-black text-slate-800 text-sm leading-none">{storeInfo.storeName}</h3>
-                               <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">
-                                   Near You • {storeInfo.storeType}
+                               <h3 className="font-black text-slate-800 text-sm">{storeInfo.storeName}</h3>
+                               <p className="text-[10px] text-slate-400 font-bold uppercase">
+                                   {items.length} item{items.length !== 1 ? 's' : ''} • {storeObj ? storeObj.distance : 'Nearby'}
                                </p>
                            </div>
                       </div>
-                      <div className="bg-white p-2 rounded-[2rem] shadow-card border border-slate-100">
-                          <div className="space-y-2 p-2">
-                              {items.map((item, idx) => (
-                                <CartItemRow 
-                                    key={item.id} 
-                                    item={item} 
-                                    index={idx}
-                                    onUpdateQuantity={onUpdateQuantity}
-                                />
-                              ))}
-                          </div>
+
+                      {/* Items */}
+                      <div className="space-y-3">
+                          {items.map((item, idx) => (
+                            <CartItemRow 
+                                key={item.id} 
+                                item={item} 
+                                index={idx}
+                                onUpdateQuantity={onUpdateQuantity}
+                            />
+                          ))}
                       </div>
+
+                      {/* Store Specific Suggestions */}
+                      {storeSuggestions.length > 0 && (
+                          <SuggestionsList suggestions={storeSuggestions} onAddProduct={onAddProduct} />
+                      )}
                   </div>
               );
            })}
          </div>
 
-         <div className="bg-white p-6 rounded-[2.5rem] shadow-card border border-slate-100 space-y-8 animate-fade-in relative z-0">
-            <div>
-                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block px-2">Order Type</label>
-                 <div className="bg-slate-100 p-1.5 rounded-[1.5rem] flex relative">
-                    <div className={`absolute top-1.5 bottom-1.5 w-[calc(50%-6px)] bg-white rounded-[1.2rem] shadow-md transition-all duration-300 ease-out ${mode === 'PICKUP' ? 'translate-x-[100%] ml-1.5' : 'translate-x-0'}`}></div>
-                    <button onClick={() => onModeChange('DELIVERY')} className={`flex-1 py-3.5 rounded-[1.2rem] text-xs font-black uppercase tracking-wide transition-colors relative z-10 ${mode === 'DELIVERY' ? 'text-slate-900' : 'text-slate-400 hover:text-slate-600'}`}>Delivery</button>
-                    <button onClick={() => onModeChange('PICKUP')} className={`flex-1 py-3.5 rounded-[1.2rem] text-xs font-black uppercase tracking-wide transition-colors relative z-10 ${mode === 'PICKUP' ? 'text-slate-900' : 'text-slate-400 hover:text-slate-600'}`}>Pickup</button>
-                </div>
+         {/* Options Section */}
+         <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 space-y-6 animate-fade-in">
+             {/* Delivery Toggle */}
+            <div className="grid grid-cols-2 gap-2 bg-slate-50 p-1.5 rounded-2xl">
+                <button 
+                    onClick={() => onModeChange('DELIVERY')}
+                    className={`py-3 rounded-xl text-xs font-black uppercase tracking-wide transition-all touch-manipulation ${mode === 'DELIVERY' ? 'bg-white text-brand-DEFAULT shadow-sm' : 'text-slate-400'}`}
+                >
+                    Delivery
+                </button>
+                <button 
+                    onClick={() => onModeChange('PICKUP')}
+                    className={`py-3 rounded-xl text-xs font-black uppercase tracking-wide transition-all touch-manipulation ${mode === 'PICKUP' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400'}`}
+                >
+                    Pickup
+                </button>
             </div>
 
             {mode === 'DELIVERY' && (
-                <div>
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block px-2">Address</label>
-                    <textarea
-                        value={deliveryAddress}
-                        onChange={(e) => onAddressChange(e.target.value)}
-                        placeholder="Enter delivery address..."
-                        className="w-full bg-slate-50 border border-slate-200 rounded-[1.5rem] p-5 text-sm font-bold text-slate-800 outline-none focus:ring-4 focus:ring-brand-light transition-all"
-                        rows={3}
+                <div className="animate-fade-in space-y-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase pl-1">Delivery Address</label>
+                    <AddressSearch 
+                       initialAddress={deliveryAddress}
+                       onSelect={handleAddressSelect}
+                       placeholder="Search address or use GPS..."
                     />
                 </div>
             )}
-            
-            <div className="h-20"></div>
+
+            {/* Time Slots */}
+            <div>
+                 <label className="text-[10px] font-bold text-slate-400 uppercase mb-2 block pl-1">Timing Preference</label>
+                 <div className="grid grid-cols-2 gap-3">
+                     <button
+                        onClick={() => setDeliveryType('INSTANT')}
+                        className={`p-4 rounded-2xl border-2 text-left transition-all relative overflow-hidden touch-manipulation ${deliveryType === 'INSTANT' ? 'border-brand-DEFAULT bg-brand-light' : 'border-slate-100 bg-white hover:border-slate-200'}`}
+                     >
+                         <div className="text-xl mb-2">⚡</div>
+                         <div className="font-bold text-slate-800 text-sm">Instant</div>
+                         <div className="text-[10px] font-bold text-slate-500">~{mode === 'DELIVERY' ? '35' : '15'} mins</div>
+                     </button>
+                     <button
+                        onClick={() => setDeliveryType('SCHEDULED')}
+                        className={`p-4 rounded-2xl border-2 text-left transition-all touch-manipulation ${deliveryType === 'SCHEDULED' ? 'border-brand-DEFAULT bg-brand-light' : 'border-slate-100 bg-white hover:border-slate-200'}`}
+                     >
+                         <div className="text-xl mb-2">📅</div>
+                         <div className="font-bold text-slate-800 text-sm">Schedule</div>
+                         <div className="text-[10px] font-bold text-slate-500">Select Slot</div>
+                     </button>
+                 </div>
+            </div>
+
+            {deliveryType === 'SCHEDULED' && (
+                 <div className="animate-fade-in space-y-2">
+                    <input 
+                      type="datetime-local" 
+                      value={scheduledTime}
+                      min={minScheduledTime}
+                      onChange={(e) => setScheduledTime(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-brand-DEFAULT"
+                    />
+                    <p className="text-[10px] text-slate-400 px-1">
+                        *Payment due 30 mins before scheduled time.
+                    </p>
+                 </div>
+            )}
          </div>
+
       </div>
 
-      {/* 3. Footer Summary */}
-      <div className="shrink-0 z-[60] bg-white border-t border-slate-100 px-5 pt-4 pb-8 shadow-[0_-8px_30px_rgba(0,0,0,0.08)]">
-         <div className="flex justify-between items-start mb-4">
-             <div className="space-y-1">
-                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Payable</p>
-                 <div className="text-3xl font-black text-slate-900 tracking-tighter">₹{onlinePayableTotal}</div>
-                 <div className="flex items-center gap-2 text-[10px] text-slate-500 font-medium mt-1">
-                    <span>Items: ₹{itemsTotal}</span>
-                    <span>•</span>
-                    <span>Delivery: {isMovMet ? <span className="text-emerald-600 font-bold">FREE</span> : `₹${deliveryFee}`}</span>
-                 </div>
+      {/* Footer Summary */}
+      <div className={`bg-white border-t border-slate-100 p-6 pb-8 z-30 shadow-[0_-10px_40px_rgba(0,0,0,0.03)] ${isPage ? 'fixed bottom-24 left-0 right-0 max-w-md mx-auto rounded-t-[2.5rem]' : ''}`}>
+         {/* Price Breakdown Mini */}
+         <div className="mb-4 space-y-1">
+             <div className="flex justify-between text-xs text-slate-500">
+                 <span className="font-bold text-slate-600">Item Total</span>
+                 <span className="font-bold text-slate-800">₹{itemsTotal}</span>
              </div>
+             {mode === 'DELIVERY' && (
+                 <div className="flex justify-between text-xs text-slate-500">
+                    <span className="flex items-center gap-1 font-bold text-slate-600">
+                        Delivery Fee
+                        {isMovMet ? (
+                            <span className="bg-brand-light text-brand-dark px-1.5 py-0.5 rounded text-[9px] font-black uppercase">Paid by Store</span>
+                        ) : (
+                            <span className="bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded text-[9px] font-bold">Standard</span>
+                        )}
+                    </span>
+                    <span className={`font-bold ${isMovMet ? 'text-brand-DEFAULT' : 'text-slate-800'}`}>
+                        {isMovMet ? 'Free' : `₹${deliveryFee}`}
+                    </span>
+                 </div>
+             )}
          </div>
 
-         <button 
-            onClick={() => preparePaymentData(false)}
-            className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-lg shadow-xl hover:bg-black active:scale-[0.98] transition-all flex items-center justify-between px-6"
-         >
-            <span>Pay ₹{onlinePayableTotal}</span>
-            <span>➔</span>
-         </button>
+         <div className="flex justify-between items-end mb-6 pt-3 border-t border-slate-100">
+            <div>
+               <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Total Payable</p>
+               <div className="text-3xl font-black text-slate-900 tracking-tight">₹{onlinePayableTotal}</div>
+            </div>
+            
+            {!isMovMet && mode === 'DELIVERY' && (
+                <div className="text-right max-w-[120px]">
+                    <p className="text-[9px] text-orange-600 font-bold leading-tight bg-orange-50 px-2 py-1 rounded-lg">
+                        Add ₹{MINIMUM_ORDER_VALUE - itemsTotal} more for FREE Delivery!
+                    </p>
+                </div>
+            )}
+         </div>
+
+         <div className="flex flex-col gap-3">
+             {deliveryType === 'SCHEDULED' && isPayLaterAllowed() && (
+                 <div className="flex gap-3">
+                    <button 
+                        onClick={() => preparePaymentData(true)}
+                        className="flex-1 py-4 bg-white border-2 border-slate-900 text-slate-900 rounded-2xl font-black text-sm shadow-sm hover:bg-slate-50 active:scale-[0.98] transition-all touch-manipulation"
+                    >
+                        Pay Later
+                        <span className="block text-[9px] font-normal opacity-70">Before 30 mins</span>
+                    </button>
+                    <button 
+                        onClick={() => preparePaymentData(false)}
+                        className="flex-1 py-4 bg-slate-900 text-white rounded-2xl font-black text-sm shadow-xl hover:bg-black active:scale-[0.98] transition-all touch-manipulation"
+                    >
+                        Pay Now
+                    </button>
+                 </div>
+             )}
+
+             {/* Standard Pay Button - High Contrast */}
+             {!(deliveryType === 'SCHEDULED' && isPayLaterAllowed()) && (
+                <button 
+                onClick={() => preparePaymentData(false)}
+                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-lg shadow-xl hover:bg-black active:scale-[0.98] transition-all flex items-center justify-between px-6 group touch-manipulation ring-1 ring-white/20"
+                >
+                <span>{deliveryType === 'SCHEDULED' ? 'Pay & Schedule' : `Pay ₹${onlinePayableTotal}`}</span>
+                <span className="bg-white/10 p-2 rounded-full group-hover:bg-white group-hover:text-slate-900 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                    </svg>
+                </span>
+                </button>
+             )}
+         </div>
       </div>
     </div>
   );
@@ -294,36 +506,22 @@ export const CartDetails: React.FC<CartDetailsProps> = ({
 export const CartSheet: React.FC<CartDetailsProps> = (props) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const totalItems = props.cart.reduce((acc, item) => acc + item.quantity, 0);
-  const totalPrice = props.cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
 
   if (props.cart.length === 0 && !isExpanded) return null;
 
   return (
     <>
       {!isExpanded && props.cart.length > 0 && (
-        <div className="fixed bottom-20 left-4 right-4 z-[45] animate-scale-in">
-            <div 
-                onClick={() => setIsExpanded(true)}
-                className="bg-slate-900 text-white p-3 rounded-2xl shadow-xl flex items-center justify-between cursor-pointer active:scale-95 transition-transform border border-slate-700/50 backdrop-blur-md"
-            >
-                <div className="flex items-center gap-3">
-                    <div className="bg-brand-DEFAULT w-10 h-10 rounded-xl flex items-center justify-center font-black text-white text-sm border-2 border-slate-800">
-                        {totalItems}
-                    </div>
-                    <div className="flex flex-col">
-                        <span className="text-xs font-bold text-slate-300 uppercase tracking-wide">Total</span>
-                        <span className="text-lg font-black leading-none">₹{totalPrice}</span>
-                    </div>
-                </div>
-                <div className="flex items-center gap-2 pr-2">
-                    <span className="text-xs font-bold">View Cart</span>
-                    <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-                           <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
-                        </svg>
-                    </div>
-                </div>
-            </div>
+        <div className="fixed bottom-24 right-4 z-50 animate-scale-in">
+          <button 
+            onClick={() => setIsExpanded(true)}
+            className="bg-slate-900 text-white pl-5 pr-2 py-2 rounded-full shadow-float flex items-center gap-3 hover:scale-105 active:scale-95 transition-all border border-slate-700 touch-manipulation"
+          >
+             <span className="font-bold text-sm">View Cart</span>
+             <div className="bg-brand-DEFAULT text-white text-xs font-black h-10 w-10 flex items-center justify-center rounded-full border-4 border-slate-900">
+                 {totalItems}
+             </div>
+          </button>
         </div>
       )}
 
@@ -333,7 +531,7 @@ export const CartSheet: React.FC<CartDetailsProps> = (props) => {
              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity animate-fade-in"
              onClick={() => setIsExpanded(false)}
            />
-           <div className="relative w-full h-[95dvh] bg-[#F8FAFC] rounded-t-[2.5rem] shadow-2xl overflow-hidden animate-slide-up flex flex-col">
+           <div className="relative w-full h-[90vh] bg-[#F8FAFC] rounded-t-[2.5rem] shadow-2xl overflow-hidden animate-slide-up">
               <CartDetails 
                 {...props} 
                 isPage={false} 

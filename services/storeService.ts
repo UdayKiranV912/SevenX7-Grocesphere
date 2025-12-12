@@ -27,47 +27,23 @@ interface DBInventory {
  */
 export const fetchLiveStores = async (lat: number, lng: number): Promise<Store[]> => {
   try {
-    let dbStores: DBStore[] = [];
-
-    // 1. Try RPC (Geospatial Query)
-    const { data: rpcData, error: rpcError } = await supabase.rpc('get_nearby_stores', {
+    // Call the SQL function we created
+    const { data: dbStores, error } = await supabase.rpc('get_nearby_stores', {
       lat,
       long: lng,
-      radius_km: 15 // Increased radius to 15km
+      radius_km: 10 // 10km radius
     });
 
-    if (!rpcError && rpcData) {
-        dbStores = rpcData;
-    } else {
-        // 2. Fallback: Direct Table Select (If RPC missing or fails)
-        // Useful for "My Store Admin" newly created stores that might not index immediately 
-        // or if the user hasn't set up the PostGIS extension/RPC.
-        console.warn("RPC fetch failed or empty, trying direct table select:", rpcError?.message);
-        
-        const { data: tableData, error: tableError } = await supabase
-            .from('stores')
-            .select('*'); // Fetch all stores (assuming low volume for MVP)
-            
-        if (!tableError && tableData) {
-            // Simple client-side distance filter (optional, or just return all)
-            dbStores = tableData.filter((s: DBStore) => {
-                const dist = calculateDistance(lat, lng, s.lat, s.lng);
-                return dist <= 20; // 20km radius fallback
-            });
-        }
-    }
+    if (error) throw error;
 
-    if (dbStores.length === 0) {
-      console.log("No DB stores found.");
-      return []; 
+    if (!dbStores || dbStores.length === 0) {
+      console.log("No DB stores found, using mock data.");
+      return []; // Return empty, let the app fallback or combine
     }
 
     // Map DB Store to App Store Type
+    // We need to fetch inventory IDs for each store to populate 'availableProductIds'
     const storesWithInventory = await Promise.all(dbStores.map(async (store: DBStore) => {
-      // Robust type check
-      const validTypes = ['general', 'produce', 'dairy'];
-      const storeType = validTypes.includes(store.type) ? store.type : 'general';
-
       const { data: invData } = await supabase
         .from('inventory')
         .select('product_id')
@@ -85,8 +61,8 @@ export const fetchLiveStores = async (lat: number, lng: number): Promise<Store[]
         lat: store.lat,
         lng: store.lng,
         isOpen: store.is_open,
-        type: storeType as Store['type'],
-        availableProductIds: productIds.length > 0 ? productIds : [] 
+        type: store.type,
+        availableProductIds: productIds.length > 0 ? productIds : [] // If empty, UI handles it or we can fallback
       };
     }));
 
@@ -114,7 +90,10 @@ export const fetchStoreProducts = async (storeId: string): Promise<Product[]> =>
     if (invError) throw invError;
     if (!inventory || inventory.length === 0) return [];
 
-    // Map inventory to product details
+    // In a full app, we would query the 'products' table here.
+    // For this hybrid MVP, we map the IDs back to our INITIAL_PRODUCTS catalog,
+    // BUT we override the price with the Store's price.
+    
     // 1. Try to find in static catalog first (Performance)
     const products = inventory.map(inv => {
       const catalogItem = INITIAL_PRODUCTS.find(p => p.id === inv.product_id);

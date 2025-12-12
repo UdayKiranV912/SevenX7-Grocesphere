@@ -2,14 +2,12 @@
 export interface BrandOption {
   name: string;
   price: number; // Override base price
-  mrp?: number; // Override MRP
 }
 
 export interface Product {
   id: string;
   name: string;
   price: number; // Base price (or starting price)
-  mrp?: number; // Maximum Retail Price
   emoji: string;
   category: string;
   description?: string;
@@ -59,7 +57,7 @@ export interface UserState {
   email?: string;
   name?: string;
   address?: string;
-  location: { lat: number; lng: number; accuracy?: number } | null;
+  location: { lat: number; lng: number } | null;
   savedCards?: SavedCard[];
   role?: 'customer' | 'store_owner' | 'delivery_partner' | 'admin';
   verificationStatus?: 'pending' | 'verified' | 'rejected';

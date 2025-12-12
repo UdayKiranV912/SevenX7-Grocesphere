@@ -5,13 +5,12 @@ import { MapVisualizer } from './MapVisualizer';
 import { getUserOrders, subscribeToUserOrders } from '../services/orderService';
 
 interface MyOrdersProps {
-  userLocation: { lat: number; lng: number; accuracy?: number } | null;
+  userLocation: { lat: number; lng: number } | null;
   onPayNow?: (order: Order) => void;
   userId?: string;
-  onRequestLocation?: () => void;
 }
 
-export const MyOrders: React.FC<MyOrdersProps> = ({ userLocation, onPayNow, userId, onRequestLocation }) => {
+export const MyOrders: React.FC<MyOrdersProps> = ({ userLocation, onPayNow, userId }) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -268,10 +267,8 @@ export const MyOrders: React.FC<MyOrdersProps> = ({ userLocation, onPayNow, user
                             <MapVisualizer
                                 stores={[mapStore]}
                                 selectedStore={mapStore}
-                                userLat={userLocation?.lat ?? null}
-                                userLng={userLocation?.lng ?? null}
-                                userAccuracy={userLocation?.accuracy}
-                                onRequestLocation={onRequestLocation}
+                                userLat={userLocation?.lat || 0}
+                                userLng={userLocation?.lng || 0}
                                 mode={order.mode}
                                 onSelectStore={() => {}}
                                 showRoute={true}

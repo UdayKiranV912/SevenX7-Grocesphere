@@ -43,14 +43,14 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({ amount, onSucces
 
   if (step === 'SUCCESS') {
     return (
-      <div className="fixed inset-0 z-[100] bg-emerald-500 flex flex-col items-center justify-center text-white animate-fade-in">
+      <div className="fixed inset-0 z-[100] bg-brand-DEFAULT flex flex-col items-center justify-center text-white animate-fade-in">
         <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mb-6 animate-bounce">
-          <svg className="w-12 h-12 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-12 h-12 text-brand-DEFAULT" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
           </svg>
         </div>
         <h2 className="text-3xl font-black mb-2">Payment Successful!</h2>
-        <p className="text-white/90 font-medium text-center max-w-xs text-lg">
+        <p className="text-white/80 font-medium text-center max-w-xs">
             Your order has been placed with the store.
         </p>
       </div>
@@ -70,7 +70,7 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({ amount, onSucces
       <div className="flex-1 flex items-center justify-center p-4">
         {step === 'CONNECTING' && (
            <div className="text-center">
-             <div className="w-12 h-12 border-4 border-gray-300 border-t-emerald-500 rounded-full animate-spin mx-auto mb-4"></div>
+             <div className="w-12 h-12 border-4 border-gray-300 border-t-brand rounded-full animate-spin mx-auto mb-4"></div>
              <p className="text-gray-500 font-bold">Connecting to Banking Servers...</p>
            </div>
         )}
@@ -84,11 +84,11 @@ export const PaymentGateway: React.FC<PaymentGatewayProps> = ({ amount, onSucces
                 
                 <div className="p-6 space-y-4">
                     {/* Store Payment - SINGLE TOTAL */}
-                    <div className="flex justify-between items-center bg-emerald-50 p-4 rounded-2xl border border-emerald-100">
+                    <div className="flex justify-between items-center bg-brand-light p-4 rounded-2xl border border-brand-DEFAULT/20">
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-xl shadow-sm text-emerald-500">🏪</div>
+                            <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-xl shadow-sm text-brand-DEFAULT">🏪</div>
                             <div>
-                                <p className="text-xs font-bold text-emerald-800 uppercase">To Store</p>
+                                <p className="text-xs font-bold text-brand-dark uppercase">To Store</p>
                                 <p className="text-xs text-slate-500 font-mono">{splits.storeUpi}</p>
                             </div>
                         </div>
