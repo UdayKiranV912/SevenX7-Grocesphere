@@ -15,60 +15,48 @@ import { PaymentGateway } from './components/PaymentGateway';
 import { UserProfile } from './components/UserProfile';
 import SevenX7Logo from './components/SevenX7Logo';
 
-// Define Product Families with updated styling
+// Define Product Families with updated styling and SVG icons for UI representation
 const PRODUCT_FAMILIES = [
   { 
     id: 'grains', 
     title: 'Grains', 
     emoji: '🌾', 
-    description: 'Rice & Flour',
-    theme: 'bg-orange-50/50 border-orange-100 text-orange-900',
-    iconColor: 'bg-orange-100 text-orange-600',
+    theme: 'bg-orange-50',
     filter: (p: Product) => p.category === 'Staples' && parseInt(p.id) <= 10
   },
   { 
     id: 'pulses', 
     title: 'Pulses', 
     emoji: '🫘', 
-    description: 'Lentils & Beans',
-    theme: 'bg-amber-50/50 border-amber-100 text-amber-900',
-    iconColor: 'bg-amber-100 text-amber-600',
+    theme: 'bg-amber-50',
     filter: (p: Product) => p.category === 'Staples' && parseInt(p.id) > 10
   },
   { 
     id: 'oils', 
     title: 'Oils', 
     emoji: '🏺', 
-    description: 'Cooking Essentials',
-    theme: 'bg-yellow-50/50 border-yellow-100 text-yellow-900',
-    iconColor: 'bg-yellow-100 text-yellow-600',
+    theme: 'bg-yellow-50',
     filter: (p: Product) => p.category === 'Oils & Spices'
   },
   { 
     id: 'dairy', 
     title: 'Dairy', 
     emoji: '🥛', 
-    description: 'Milk & Bread',
-    theme: 'bg-blue-50/50 border-blue-100 text-blue-900',
-    iconColor: 'bg-blue-100 text-blue-600',
+    theme: 'bg-blue-50',
     filter: (p: Product) => p.category === 'Dairy & Breakfast'
   },
   { 
     id: 'produce', 
     title: 'Fresh', 
     emoji: '🥦', 
-    description: 'Fruits & Veg',
-    theme: 'bg-emerald-50/50 border-emerald-100 text-emerald-900',
-    iconColor: 'bg-emerald-100 text-emerald-600',
+    theme: 'bg-emerald-50',
     filter: (p: Product) => p.category === 'Veg & Fruits'
   },
   { 
     id: 'snacks', 
-    title: 'Snacks', 
+    title: 'Munchies', 
     emoji: '🍿', 
-    description: 'Chips & Drinks',
-    theme: 'bg-purple-50/50 border-purple-100 text-purple-900',
-    iconColor: 'bg-purple-100 text-purple-600',
+    theme: 'bg-purple-50',
     filter: (p: Product) => p.category === 'Snacks & Drinks'
   },
 ];
@@ -107,31 +95,25 @@ const App: React.FC = () => {
   const totalCartItems = cart.reduce((acc, item) => acc + item.quantity, 0);
 
   // --- LOCATION HANDLING ---
-  // Optimized callback from MapVisualizer. 
-  // MapVisualizer handles high-freq updates, we only act on them here for data fetching.
   const handleLocationUpdate = useCallback(async (loc: { lat: number; lng: number; accuracy: number }) => {
-      // 1. Update User State (This is throttled by MapVisualizer logic if needed, but safe to update here)
       setUser(prev => {
-          // Avoid re-renders if pos hasn't changed much
           if (prev.location && Math.abs(prev.location.lat - loc.lat) < 0.0001 && Math.abs(prev.location.lng - loc.lng) < 0.0001) {
               return prev;
           }
           return { ...prev, location: { lat: loc.lat, lng: loc.lng, accuracy: loc.accuracy } };
       });
 
-      // 2. Fetch Stores (if not done)
       if (!hasFetchedStores.current) {
           const isDemoUser = user.id === 'demo-user';
           initializeStores(loc.lat, loc.lng, isDemoUser);
       }
 
-      // 3. Fetch Address (if missing)
       if (!user.address) {
           try {
               const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${loc.lat}&lon=${loc.lng}&zoom=18&addressdetails=1`);
               const data = await res.json();
               if (data && data.display_name) {
-                  const addr = data.display_name.split(',').slice(0, 3).join(','); // Shorten
+                  const addr = data.display_name.split(',').slice(0, 3).join(','); 
                   setUser(prev => ({ ...prev, address: addr }));
                   setDeliveryAddress(addr);
               }
@@ -147,13 +129,9 @@ const App: React.FC = () => {
       setIsLoadingStores(true);
       
       try {
-          // 1. Fetch Real Registered Stores from Supabase (My Store Admin)
           const dbStores = await fetchLiveStores(lat, lng);
-
-          // 2. Fetch OSM stores
           const osmStores = await findNearbyStores(lat, lng);
 
-          // Combine: Prioritize DB stores
           const allStores = [...dbStores];
           
           osmStores.forEach(osm => {
@@ -165,7 +143,6 @@ const App: React.FC = () => {
           });
 
           if (isDemo) {
-             // DEMO MODE: Ensure stores are always populated using MOCK data if sparse
              if (allStores.length < 5) {
                 setAvailableStores([...allStores, ...MOCK_STORES]);
                 setActiveStore(allStores[0] || MOCK_STORES[0]);
@@ -174,7 +151,6 @@ const App: React.FC = () => {
                 setActiveStore(allStores[0]);
              }
           } else {
-             // REAL USER: Only show DB + OSM Stores
              if (allStores.length === 0) {
                  setAvailableStores([]); 
                  setActiveStore(null);
@@ -245,7 +221,7 @@ const App: React.FC = () => {
         .map(p => p.name)
         .slice(0, 4);
       const familyMatches = PRODUCT_FAMILIES
-        .filter(f => f.title.toLowerCase().includes(term) || f.description.toLowerCase().includes(term))
+        .filter(f => f.title.toLowerCase().includes(term))
         .map(f => f.title);
       const combined = Array.from(new Set([...prodMatches, ...familyMatches]));
       setSearchSuggestions(combined);
@@ -346,21 +322,15 @@ const App: React.FC = () => {
     if (!details) return;
 
     if (details.existingOrderId) {
-        // ... (existing update logic) ...
         setShowPaymentGateway(false);
         setPendingOrderDetails(null);
         setCurrentView('ORDERS');
         return;
     }
 
-    // Creating new orders
     const deadline = details.scheduledTime 
         ? new Date(new Date(details.scheduledTime).getTime() - 30 * 60000).toISOString()
         : undefined;
-
-    // We only support SINGLE store payment flow for the split logic in this MVP
-    // If cart has multiple stores, splits apply to each individually or aggregated.
-    // For simplicity, we assume one active store flow or basic split.
     
     // Create one order per store
     const itemsByStore: Record<string, CartItem[]> = {};
@@ -372,7 +342,6 @@ const App: React.FC = () => {
     const newOrders: Order[] = Object.entries(itemsByStore).map(([storeId, items]) => {
         const storeItem = items[0];
         const subTotal = items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-        // Recalculate fees locally just to be safe for the Object
         const deliveryFee = details.splits?.deliveryFee || 0;
         const handlingFee = details.splits?.handlingFee || 0;
         const total = subTotal + deliveryFee + handlingFee;
@@ -390,9 +359,9 @@ const App: React.FC = () => {
             scheduledTime: details.scheduledTime,
             deliveryAddress: orderMode === 'DELIVERY' ? deliveryAddress : undefined,
             storeName: storeItem.storeName,
-            storeLocation: { lat: 0, lng: 0 }, // Should fetch real location
+            storeLocation: { lat: 0, lng: 0 }, 
             userLocation: user.location || undefined,
-            splits: details.splits // Save split info
+            splits: details.splits 
         };
     });
 
@@ -414,15 +383,12 @@ const App: React.FC = () => {
     return <Auth onLoginSuccess={handleLoginSuccess} onDemoLogin={handleDemoLogin} />;
   }
 
-  // Payment Gateway Render
   if (showPaymentGateway && pendingOrderDetails) {
-      // Calculate total if not set
       let amount = pendingOrderDetails.amount || 0;
       if (!amount && pendingOrderDetails.splits) {
           const s = pendingOrderDetails.splits;
           amount = s.storeAmount + s.deliveryFee + s.handlingFee;
       }
-
       return (
           <PaymentGateway 
              amount={amount}
@@ -448,108 +414,135 @@ const App: React.FC = () => {
   });
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] pb-24 font-sans text-slate-900 selection:bg-brand-light selection:text-brand-dark">
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 pb-24">
       
-      {/* HEADER */}
-      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-slate-200/50 shadow-sm transition-all duration-300">
-        <div className="max-w-md mx-auto px-4 py-3 flex items-start justify-between">
-            <div className="flex flex-col items-start gap-1">
-                <div className="flex flex-col items-start">
-                   <h1 className="text-2xl font-black text-slate-900 tracking-tight leading-none">Grocesphere</h1>
-                   {/* Removed w-full to fix logo alignment issues */}
-                   <div className="mt-1 flex items-center justify-start">
-                     <SevenX7Logo size="xs" />
-                   </div>
-                </div>
-
-                <div className="flex items-center gap-2 bg-slate-100 rounded-full pl-1 pr-3 py-1 mt-2 cursor-default select-none">
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs text-white shadow-sm transition-colors ${
-                        activeStore?.type === 'produce' ? 'bg-emerald-500' : 
-                        activeStore?.type === 'dairy' ? 'bg-blue-500' : 'bg-orange-500'
-                    }`}>
-                        {activeStore?.type === 'produce' ? '🥦' : activeStore?.type === 'dairy' ? '🥛' : '🏪'}
-                    </div>
-                    <div className="flex flex-col items-start">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase leading-none mb-0.5">Shopping At</span>
-                        <span className="text-xs font-bold text-slate-800 leading-none truncate max-w-[120px]">
-                            {isLoadingStores ? 'Locating...' : (activeStore?.name || 'Select Store')}
-                        </span>
+      {/* --- HEADER --- */}
+      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-slate-100/80 shadow-sm">
+        <div className="max-w-md mx-auto px-4 pt-3 pb-2">
+            <div className="flex justify-between items-start">
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 text-brand-dark cursor-pointer group" onClick={() => setCurrentView('PROFILE')}>
+                        <div className="bg-brand-light p-1.5 rounded-full text-brand-DEFAULT group-hover:bg-brand-DEFAULT group-hover:text-white transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                            </svg>
+                        </div>
+                        <div className="flex flex-col">
+                            <h2 className="font-black text-sm truncate leading-tight flex items-center gap-1">
+                                {user.address ? user.address.split(',')[0] : 'Locating...'}
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-slate-400" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                                </svg>
+                            </h2>
+                            <p className="text-[10px] text-slate-400 font-bold truncate max-w-[200px]">
+                                {user.address || 'Detecting GPS location...'}
+                            </p>
+                        </div>
                     </div>
                 </div>
+                <button 
+                  onClick={() => setCurrentView('PROFILE')}
+                  className="w-9 h-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 font-black text-sm hover:bg-slate-200 transition-colors shadow-sm"
+                >
+                  {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                </button>
             </div>
-
-            <button 
-              onClick={() => setCurrentView('PROFILE')}
-              className="w-10 h-10 rounded-full bg-slate-100 border-2 border-white shadow-sm flex items-center justify-center text-lg hover:bg-slate-200 transition-colors active:scale-90 mt-1"
-            >
-              {user.name ? user.name.charAt(0).toUpperCase() : '👤'}
-            </button>
+            
+            {/* Search Bar - Integrated in Header Area */}
+            {currentView === 'SHOP' && (
+                <div className="mt-3 relative pb-1">
+                   <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none pb-1">
+                       <svg className="h-4 w-4 text-slate-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                           <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
+                       </svg>
+                   </div>
+                   <input 
+                      type="text" 
+                      placeholder="Search for 'milk', 'chips'..." 
+                      className="w-full pl-10 pr-4 py-2.5 bg-slate-100 border-none rounded-xl text-sm font-semibold text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-brand-DEFAULT/20 focus:bg-white transition-all shadow-inner"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                   />
+                </div>
+            )}
         </div>
       </header>
 
-      <main className="max-w-md mx-auto pt-4 relative">
+      <main className="max-w-md mx-auto relative min-h-screen">
         {currentView === 'SHOP' && (
-          <div className="px-4 space-y-6 animate-fade-in">
-            {/* Search Bar */}
-            <div className="relative group z-30">
-              <input 
-                type="text" 
-                placeholder="Search fresh items..." 
-                className="w-full pl-12 pr-4 py-4 bg-white rounded-2xl shadow-soft text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-DEFAULT/50 transition-all font-bold text-sm"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onFocus={() => searchTerm.length > 0 && setShowSuggestions(true)}
-              />
-              {/* ...suggestions... */}
-            </div>
-
-            {/* Map & Toggle */}
-            <div className="space-y-4">
-                <div className="bg-white p-1.5 rounded-2xl shadow-sm border border-slate-100 flex relative z-0">
-                    <button onClick={() => setOrderMode('DELIVERY')} className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-wide transition-all ${orderMode === 'DELIVERY' ? 'bg-slate-900 text-white' : 'text-slate-400'}`}>Delivery</button>
-                    <button onClick={() => setOrderMode('PICKUP')} className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-wide transition-all ${orderMode === 'PICKUP' ? 'bg-slate-900 text-white' : 'text-slate-400'}`}>Pickup</button>
-                </div>
-                {/* Increased Height for better visibility */}
-                <div className="h-64 rounded-[2rem] overflow-hidden shadow-card border border-white relative z-0">
+          <div className="animate-fade-in pb-8">
+            
+            {/* 1. Map Widget (Collapsible/Hero) */}
+            <div className="px-4 py-4">
+                <div className="h-40 rounded-2xl overflow-hidden shadow-sm border border-slate-200 relative group">
+                     <div className="absolute top-2 left-2 z-[400] bg-white/90 backdrop-blur px-2 py-1 rounded-lg shadow-sm border border-slate-100">
+                        <div className="flex items-center gap-1.5">
+                            <span className="relative flex h-2 w-2">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                            </span>
+                            <span className="text-[10px] font-black uppercase text-slate-700">Live Tracking</span>
+                        </div>
+                     </div>
                      <MapVisualizer 
                         stores={availableStores} 
                         userLat={user.location?.lat ?? null}
                         userLng={user.location?.lng ?? null}
+                        userAccuracy={user.location?.accuracy}
                         selectedStore={activeStore}
                         onSelectStore={setActiveStore}
                         mode={orderMode}
                         showRoute={orderMode === 'DELIVERY'}
-                        className="h-full"
+                        className="h-full w-full"
                         onLocationUpdate={handleLocationUpdate}
                     />
+                    <div className="absolute bottom-0 left-0 right-0 bg-white/90 backdrop-blur-sm p-2 flex justify-between items-center z-[400] border-t border-slate-100">
+                         <div className="flex gap-2">
+                             <button onClick={() => setOrderMode('DELIVERY')} className={`text-[10px] font-bold px-3 py-1 rounded-full transition-colors ${orderMode === 'DELIVERY' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-500'}`}>Delivery</button>
+                             <button onClick={() => setOrderMode('PICKUP')} className={`text-[10px] font-bold px-3 py-1 rounded-full transition-colors ${orderMode === 'PICKUP' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-500'}`}>Pickup</button>
+                         </div>
+                         <div className="text-[10px] font-bold text-slate-500 flex items-center gap-1">
+                             <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-brand-DEFAULT" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4zm-6 3a1 1 0 112 0 1 1 0 01-2 0zm7-1a1 1 0 100 2 1 1 0 000-2z" clipRule="evenodd" /></svg>
+                             {isLoadingStores ? 'Scanning area...' : activeStore ? `${activeStore.name} • ${activeStore.distance}` : 'Select a store on map'}
+                         </div>
+                    </div>
                 </div>
             </div>
 
-            {/* Families & Products */}
+            {/* 2. Categories (Horizontal Scroll) */}
             {!searchTerm && (
-                <div className="grid grid-cols-3 gap-2">
-                {PRODUCT_FAMILIES.map((family) => {
-                    const isSelected = selectedFamilyId === family.id;
-                    return (
-                    <button
-                        key={family.id}
-                        onClick={() => setSelectedFamilyId(isSelected ? null : family.id)}
-                        className={`relative p-3 rounded-2xl border transition-all duration-300 flex flex-col items-center gap-2 ${isSelected ? 'bg-slate-800 border-slate-900 shadow-lg scale-[1.02]' : `${family.theme} hover:scale-[1.02] bg-white`}`}
-                    >
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xl shadow-sm ${isSelected ? 'bg-white/10 text-white' : 'bg-white'}`}>{family.emoji}</div>
-                        <span className={`text-[10px] font-black uppercase tracking-wide ${isSelected ? 'text-white' : ''}`}>{family.title}</span>
-                    </button>
-                    );
-                })}
+                <div className="mb-6">
+                    <div className="flex gap-3 overflow-x-auto px-4 pb-2 hide-scrollbar snap-x">
+                        {PRODUCT_FAMILIES.map((family) => {
+                            const isSelected = selectedFamilyId === family.id;
+                            return (
+                                <button
+                                    key={family.id}
+                                    onClick={() => setSelectedFamilyId(isSelected ? null : family.id)}
+                                    className="flex flex-col items-center gap-2 min-w-[76px] snap-start group"
+                                >
+                                    <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shadow-sm border transition-all duration-300 relative overflow-hidden ${isSelected ? 'bg-slate-800 border-slate-900 scale-105' : `${family.theme} border-transparent group-hover:scale-105 bg-white`}`}>
+                                        <div className="absolute inset-0 bg-white/40"></div>
+                                        <div className="relative z-10 filter drop-shadow-md emoji-real scale-90">{family.emoji}</div>
+                                    </div>
+                                    <span className={`text-[10px] font-bold text-center leading-tight transition-colors ${isSelected ? 'text-slate-900' : 'text-slate-500 group-hover:text-slate-700'}`}>
+                                        {family.title}
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </div>
                 </div>
             )}
 
-            <div className="pb-10">
-              <div className="flex items-center justify-between mb-4">
-                 <h2 className="text-xl font-black text-slate-800">{searchTerm ? 'Search Results' : 'Fresh Picks'}</h2>
-                 <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-lg">{filteredProducts.length} items</span>
+            {/* 3. Product Grid */}
+            <div className="px-4">
+              <div className="flex items-center justify-between mb-3">
+                 <h2 className="text-lg font-black text-slate-800">{searchTerm ? 'Search Results' : selectedFamilyId ? 'Category Items' : 'Recommended'}</h2>
+                 <span className="text-[10px] font-bold text-slate-400 bg-white border border-slate-100 px-2 py-1 rounded-full">{filteredProducts.length} items</span>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              
+              <div className="grid grid-cols-2 gap-3 pb-24">
                     {filteredProducts.map((product) => (
                     <StickerProduct 
                         key={product.id} 
@@ -592,7 +585,6 @@ const App: React.FC = () => {
                 onPayNow={handlePayForExistingOrder} 
                 userId={user.id} 
                 onRequestLocation={() => {
-                     // Force update via simple geolocation if map isn't visible
                      if (navigator.geolocation) {
                          navigator.geolocation.getCurrentPosition(
                              (pos) => handleLocationUpdate({ 
@@ -612,39 +604,7 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {/* Navigation */}
-      <nav className="fixed bottom-6 left-6 right-6 max-w-sm mx-auto bg-white/90 backdrop-blur-xl border border-white/20 shadow-float rounded-full px-2 py-2 flex justify-between items-center z-50">
-          {[
-            { id: 'SHOP', icon: '🏠', label: 'Home' },
-            { id: 'CART', icon: '🛒', label: 'Cart', badge: totalCartItems },
-            { id: 'ORDERS', icon: '🧾', label: 'Orders' },
-            { id: 'PROFILE', icon: '👤', label: 'Profile' }
-          ].map((item) => {
-              const isActive = currentView === item.id;
-              return (
-                <button 
-                    key={item.id}
-                    onClick={() => setCurrentView(item.id as any)}
-                    className={`relative flex-1 h-12 flex items-center justify-center rounded-full transition-all duration-300 ${isActive ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'}`}
-                >
-                    <span className={`text-xl ${isActive ? 'scale-110' : ''}`}>{item.icon}</span>
-                    {item.badge ? <span className="absolute top-1 right-3 w-4 h-4 bg-brand-DEFAULT text-white text-[9px] font-black flex items-center justify-center rounded-full border-2 border-white">{item.badge}</span> : null}
-                </button>
-              );
-          })}
-      </nav>
-
-      {selectedProduct && (
-        <ProductDetailsModal 
-            product={selectedProduct} 
-            cart={cart}
-            activeStoreId={activeStore?.id}
-            onClose={() => setSelectedProduct(null)} 
-            onAdd={(p, q, brand, price, mrp) => addToCart(p, q, brand, price, mrp)}
-            onUpdateQuantity={updateQuantity}
-        />
-      )}
-
+      {/* --- CART FLOATING BAR --- */}
       {currentView === 'SHOP' && cart.length > 0 && (
          <CartSheet 
             cart={cart}
@@ -659,6 +619,68 @@ const App: React.FC = () => {
             stores={availableStores}
             userLocation={user.location}
          />
+      )}
+
+      {/* --- BOTTOM NAVIGATION --- */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 px-6 py-2 flex justify-between items-center z-50 pb-safe">
+          {[
+            { 
+              id: 'SHOP', 
+              label: 'Home', 
+              icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>,
+              activeIcon: <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" /></svg>
+            },
+            { 
+              id: 'CART', 
+              label: 'Cart', 
+              badge: totalCartItems,
+              icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>,
+              activeIcon: <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4zm-6 3a1 1 0 112 0 1 1 0 01-2 0zm7-1a1 1 0 100 2 1 1 0 000-2z" clipRule="evenodd" /></svg>
+            },
+            { 
+              id: 'ORDERS', 
+              label: 'Orders', 
+              icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>,
+              activeIcon: <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" /></svg>
+            },
+            { 
+              id: 'PROFILE', 
+              label: 'Profile', 
+              icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>,
+              activeIcon: <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" /></svg>
+            }
+          ].map((item) => {
+              const isActive = currentView === item.id;
+              return (
+                <button 
+                    key={item.id}
+                    onClick={() => setCurrentView(item.id as any)}
+                    className={`flex flex-col items-center justify-center w-16 h-14 rounded-xl transition-all duration-200 group relative ${isActive ? '' : 'hover:bg-slate-50'}`}
+                >
+                    <span className={`transition-transform duration-200 ${isActive ? 'text-slate-900 -translate-y-1' : 'text-slate-400 group-hover:text-slate-600'}`}>
+                        {isActive ? item.activeIcon : item.icon}
+                    </span>
+                    <span className={`text-[10px] font-bold ${isActive ? 'text-slate-900 opacity-100' : 'text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity'}`}>{item.label}</span>
+                    
+                    {/* Active Indicator Dot */}
+                    {isActive && <span className="absolute bottom-1 w-1 h-1 bg-slate-900 rounded-full"></span>}
+
+                    {/* Badge */}
+                    {item.badge ? <span className="absolute top-2 right-2 min-w-[16px] h-4 bg-brand-DEFAULT text-white text-[9px] font-black flex items-center justify-center rounded-full border-2 border-white px-0.5">{item.badge}</span> : null}
+                </button>
+              );
+          })}
+      </nav>
+
+      {selectedProduct && (
+        <ProductDetailsModal 
+            product={selectedProduct} 
+            cart={cart}
+            activeStoreId={activeStore?.id}
+            onClose={() => setSelectedProduct(null)} 
+            onAdd={(p, q, brand, price, mrp) => addToCart(p, q, brand, price, mrp)}
+            onUpdateQuantity={updateQuantity}
+        />
       )}
 
     </div>

@@ -197,27 +197,35 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
           const isSelected = selectedStore?.id === store.id;
           
           let color = '#f97316'; // orange
-          let emoji = '🏪';
-          if (store.type === 'produce') { color = '#10b981'; emoji = '🥦'; }
-          if (store.type === 'dairy') { color = '#3b82f6'; emoji = '🥛'; }
+          let svg = `<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>`;
+          
+          if (store.type === 'produce') { 
+              color = '#10b981'; 
+              svg = `<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`;
+          }
+          if (store.type === 'dairy') { 
+              color = '#3b82f6'; 
+              svg = `<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>`;
+          }
           
           const icon = L.divIcon({
               className: 'custom-pin',
               html: `<div style="
                 background-color: ${color};
-                width: ${isSelected ? 44 : 34}px;
-                height: ${isSelected ? 44 : 34}px;
+                width: ${isSelected ? 48 : 36}px;
+                height: ${isSelected ? 48 : 36}px;
                 border-radius: 50% 50% 50% 0;
                 transform: rotate(-45deg);
                 border: 3px solid white;
                 box-shadow: 0 4px 10px rgba(0,0,0,0.2);
                 display: flex; align-items: center; justify-content: center;
                 cursor: pointer;
+                transition: all 0.3s ease;
               ">
-                <div style="transform: rotate(45deg); font-size: ${isSelected ? 20 : 16}px;">${emoji}</div>
+                <div style="transform: rotate(45deg);">${svg}</div>
               </div>`,
-              iconSize: [40, 40],
-              iconAnchor: [20, 40]
+              iconSize: [48, 48],
+              iconAnchor: [24, 48]
           });
 
           const marker = L.marker([store.lat, store.lng], { icon, zIndexOffset: isSelected ? 500 : 0 })
@@ -316,10 +324,16 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
       {/* --- Bottom: Store Info Overlay --- */}
       {selectedStore && (
         <div className="absolute bottom-3 left-3 right-3 bg-white/95 backdrop-blur-xl px-4 py-3 rounded-2xl shadow-lg border border-white/50 z-[400] animate-fade-in-up flex items-center gap-3">
-             <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xl shadow-sm border border-white ${
-                 selectedStore.type === 'produce' ? 'bg-emerald-100' : selectedStore.type === 'dairy' ? 'bg-blue-100' : 'bg-orange-100'
+             <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white shadow-sm border border-white ${
+                 selectedStore.type === 'produce' ? 'bg-emerald-500' : selectedStore.type === 'dairy' ? 'bg-blue-500' : 'bg-orange-500'
              }`}>
-                {selectedStore.type === 'produce' ? '🥦' : selectedStore.type === 'dairy' ? '🥛' : '🏪'}
+                {selectedStore.type === 'produce' ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                ) : selectedStore.type === 'dairy' ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+                ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                )}
              </div>
              <div className="flex-1 min-w-0">
                  <h4 className="font-black text-slate-800 text-sm truncate">{selectedStore.name}</h4>

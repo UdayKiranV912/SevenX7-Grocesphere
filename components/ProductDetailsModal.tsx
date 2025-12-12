@@ -84,26 +84,27 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
         {/* Scrollable Content */}
         <div className="overflow-y-auto hide-scrollbar flex-1 pb-4">
             {/* Background Blob */}
-            <div className="absolute top-0 left-0 right-0 h-64 bg-gradient-to-b from-brand-light to-white -z-10"></div>
+            <div className="absolute top-0 left-0 right-0 h-72 bg-gradient-to-b from-brand-light to-white -z-10"></div>
             
             {/* Close */}
             <button onClick={onClose} className="absolute top-6 right-6 w-10 h-10 flex items-center justify-center bg-white/50 backdrop-blur rounded-full text-slate-500 hover:bg-white hover:text-slate-800 transition-all z-20 shadow-sm">✕</button>
 
             {/* Hero */}
-            <div className="flex flex-col items-center pt-8 px-8">
-            <div className="relative">
-                <div className="w-40 h-40 bg-white rounded-[2.5rem] flex items-center justify-center text-[5rem] shadow-soft-xl mb-4 animate-bounce-soft border-4 border-white">
+            <div className="flex flex-col items-center pt-10 px-8">
+            <div className="relative group">
+                {/* 3D Sticker Effect Container */}
+                <div className="w-48 h-48 flex items-center justify-center text-[7rem] mb-4 animate-float drop-shadow-2xl filter emoji-real">
                     {product.emoji}
                 </div>
                 {/* Only show hero discount if single variant */}
                 {!hasBrands && discount > 0 && (
-                    <div className="absolute -right-4 top-0 bg-brand-DEFAULT text-white font-black text-xs px-3 py-1.5 rounded-full shadow-lg rotate-12">
+                    <div className="absolute -right-2 top-4 bg-brand-dark text-white font-black text-sm px-4 py-2 rounded-xl shadow-lg rotate-12 transform group-hover:rotate-6 transition-transform">
                         {discount}% OFF
                     </div>
                 )}
             </div>
 
-            <h2 className="text-3xl font-black text-slate-900 text-center tracking-tight leading-none mb-2">{product.name}</h2>
+            <h2 className="text-3xl font-black text-slate-900 text-center tracking-tight leading-none mb-2 mt-4">{product.name}</h2>
             
             {!hasBrands ? (
                 <div className="flex items-baseline gap-2">
@@ -148,7 +149,7 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
             {hasBrands && (
                 <div className="px-6 mt-8 space-y-3 pb-8">
                     <div className="flex items-center gap-2 mb-2 px-2">
-                        <span className="text-lg">🏷️</span>
+                        <svg className="w-5 h-5 text-slate-800" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>
                         <h3 className="font-black text-slate-800">Available Brands</h3>
                     </div>
                     
@@ -207,7 +208,6 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
         </div>
 
         {/* === SINGLE BRAND STICKY FOOTER === */}
-        {/* Only show if NO brands are available (Generic Mode) */}
         {!hasBrands && (
             <div className="p-6 bg-white border-t border-slate-100 flex items-center gap-4 shrink-0">
                 <div className="flex items-center gap-4 bg-slate-100 rounded-2xl px-4 py-3 shadow-inner">
