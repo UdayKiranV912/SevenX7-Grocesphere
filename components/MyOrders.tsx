@@ -4,18 +4,23 @@ import { Order, Store, OrderMode } from '../types';
 import MapCustomer from './MapCustomer';
 import { getUserOrders, subscribeToUserOrders } from '../services/orderService';
 import { MapVisualizer } from './MapVisualizer';
+import { useStore } from '../contexts/StoreContext';
+import { MOCK_STORES } from '../constants';
 
 interface MyOrdersProps {
   userLocation: { lat: number; lng: number } | null;
   onPayNow?: (order: Order) => void;
   userId?: string;
+  onNavigateToShop?: () => void;
 }
 
-export const MyOrders: React.FC<MyOrdersProps> = ({ userLocation, onPayNow, userId }) => {
+export const MyOrders: React.FC<MyOrdersProps> = ({ userLocation, onPayNow, userId, onNavigateToShop }) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [driverLocations, setDriverLocations] = useState<Record<string, {lat: number, lng: number}>>({});
+
+  const { setActiveStore, availableStores } = useStore();
 
   // Fetch Orders on Mount or userId change
   useEffect(() => {
@@ -116,6 +121,26 @@ export const MyOrders: React.FC<MyOrdersProps> = ({ userLocation, onPayNow, user
 
       return () => clearInterval(interval);
   }, [expandedOrderId, orders, userId]);
+
+  const handleShopNow = (order: Order) => {
+    const storeId = order.items[0]?.storeId;
+    if (storeId) {
+        // Try to find the store in currently available stores or mock stores
+        const store = availableStores.find(s => s.id === storeId) || MOCK_STORES.find(s => s.id === storeId);
+        
+        if (store) {
+            setActiveStore(store);
+            if (onNavigateToShop) {
+                onNavigateToShop();
+            } else {
+                alert(`Redirecting to ${store.name}...`);
+            }
+        } else {
+            // Fallback if store data missing
+            alert(`Store information for ${order.storeName} is not currently available.`);
+        }
+    }
+  };
 
   if (loading) {
     return (
@@ -284,6 +309,9 @@ export const MyOrders: React.FC<MyOrdersProps> = ({ userLocation, onPayNow, user
                                     store={storeLoc}
                                     customer={custLoc}
                                     className="h-full"
+                                    storeName={order.storeName}
+                                    storeRating={4.5}
+                                    onShopNow={() => handleShopNow(order)}
                                 />
                             ) : (
                                 <MapVisualizer 

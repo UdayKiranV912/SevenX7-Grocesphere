@@ -120,6 +120,7 @@ const App: React.FC = () => {
   
   const hasFetchedStores = useRef(false);
   const watchIdRef = useRef<number | null>(null);
+  const productGridRef = useRef<HTMLDivElement>(null); // Ref for scrolling
 
   const totalCartItems = cart.reduce((acc, item) => acc + item.quantity, 0);
 
@@ -316,6 +317,16 @@ const App: React.FC = () => {
     hasFetchedStores.current = false;
     setActiveStore(null);
     setAvailableStores([]);
+  };
+
+  const handleStoreSelection = (store: Store) => {
+    setActiveStore(store);
+    // Smooth scroll to product grid to indicate "Entering Shop"
+    setTimeout(() => {
+        if (productGridRef.current) {
+            productGridRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }, 100);
   };
 
   const addToCart = (product: Product, quantity = 1, brand?: string, brandPrice?: number, variant?: Variant) => {
@@ -578,7 +589,7 @@ const App: React.FC = () => {
                         userLat={user.location?.lat || 0}
                         userLng={user.location?.lng || 0}
                         selectedStore={activeStore}
-                        onSelectStore={setActiveStore}
+                        onSelectStore={handleStoreSelection}
                         mode={orderMode}
                         showRoute={orderMode === 'DELIVERY'}
                         className="h-full"
@@ -588,53 +599,55 @@ const App: React.FC = () => {
             </div>
 
             {/* Families & Products */}
-            {activeStore && !searchTerm && (
-                <div className="grid grid-cols-4 gap-2">
-                {PRODUCT_FAMILIES.map((family) => {
-                    const isSelected = selectedFamilyId === family.id;
-                    return (
-                    <button
-                        key={family.id}
-                        onClick={() => setSelectedFamilyId(isSelected ? null : family.id)}
-                        className={`relative p-2 rounded-2xl border transition-all duration-300 flex flex-col items-center gap-1 ${isSelected ? 'bg-slate-800 border-slate-900 shadow-lg scale-[1.02]' : `${family.theme} hover:scale-[1.02] bg-white`}`}
-                    >
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-lg shadow-sm ${isSelected ? 'bg-white/10 text-white' : 'bg-white'}`}>{family.emoji}</div>
-                        <span className={`text-[9px] font-black uppercase tracking-wide ${isSelected ? 'text-white' : ''}`}>{family.title}</span>
-                    </button>
-                    );
-                })}
-                </div>
-            )}
+            <div ref={productGridRef} id="product-grid" className="pt-2">
+                {activeStore && !searchTerm && (
+                    <div className="grid grid-cols-4 gap-2 mb-8">
+                    {PRODUCT_FAMILIES.map((family) => {
+                        const isSelected = selectedFamilyId === family.id;
+                        return (
+                        <button
+                            key={family.id}
+                            onClick={() => setSelectedFamilyId(isSelected ? null : family.id)}
+                            className={`relative p-2 rounded-2xl border transition-all duration-300 flex flex-col items-center gap-1 ${isSelected ? 'bg-slate-800 border-slate-900 shadow-lg scale-[1.02]' : `${family.theme} hover:scale-[1.02] bg-white`}`}
+                        >
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-lg shadow-sm ${isSelected ? 'bg-white/10 text-white' : 'bg-white'}`}>{family.emoji}</div>
+                            <span className={`text-[9px] font-black uppercase tracking-wide ${isSelected ? 'text-white' : ''}`}>{family.title}</span>
+                        </button>
+                        );
+                    })}
+                    </div>
+                )}
 
-            <div className="pb-10">
-              <div className="flex items-center justify-between mb-4">
-                 <h2 className="text-xl font-black text-slate-800">{searchTerm ? 'Search Results' : 'Fresh Picks'}</h2>
-                 <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-lg">{filteredProducts.length} items</span>
-              </div>
-              
-              {activeStore ? (
-                  <div className="grid grid-cols-2 gap-3">
-                        {filteredProducts.map((product) => (
-                        <StickerProduct 
-                            key={product.id} 
-                            product={product} 
-                            onAdd={(p) => addToCart(p)}
-                            onUpdateQuantity={(id, delta) => {
-                                // Simple update for items without specific variants or just base product
-                                const item = cart.find(c => c.originalProductId === product.id && c.storeId === activeStore?.id);
-                                if (item) updateQuantity(item.id, delta);
-                            }}
-                            onClick={(p) => setSelectedProduct(p)}
-                            count={cart.filter(item => item.originalProductId === product.id && item.storeId === activeStore?.id).reduce((acc, curr) => acc + curr.quantity, 0)}
-                        />
-                        ))}
-                  </div>
-              ) : (
-                  <div className="flex flex-col items-center justify-center py-12 text-center opacity-50">
-                      <div className="text-4xl mb-2">🏪</div>
-                      <p className="font-bold text-slate-400">Select a store to see items</p>
-                  </div>
-              )}
+                <div className="pb-10">
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-black text-slate-800">{searchTerm ? 'Search Results' : 'Fresh Picks'}</h2>
+                    <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-lg">{filteredProducts.length} items</span>
+                </div>
+                
+                {activeStore ? (
+                    <div className="grid grid-cols-2 gap-3">
+                            {filteredProducts.map((product) => (
+                            <StickerProduct 
+                                key={product.id} 
+                                product={product} 
+                                onAdd={(p) => addToCart(p)}
+                                onUpdateQuantity={(id, delta) => {
+                                    // Simple update for items without specific variants or just base product
+                                    const item = cart.find(c => c.originalProductId === product.id && c.storeId === activeStore?.id);
+                                    if (item) updateQuantity(item.id, delta);
+                                }}
+                                onClick={(p) => setSelectedProduct(p)}
+                                count={cart.filter(item => item.originalProductId === product.id && item.storeId === activeStore?.id).reduce((acc, curr) => acc + curr.quantity, 0)}
+                            />
+                            ))}
+                    </div>
+                ) : (
+                    <div className="flex flex-col items-center justify-center py-12 text-center opacity-50">
+                        <div className="text-4xl mb-2">🏪</div>
+                        <p className="font-bold text-slate-400">Select a store to see items</p>
+                    </div>
+                )}
+                </div>
             </div>
           </div>
         )}
@@ -662,6 +675,7 @@ const App: React.FC = () => {
                 userLocation={user.location} 
                 userId={user.id}
                 onPayNow={(order) => handlePayForExistingOrder(order)}
+                onNavigateToShop={() => setCurrentView('SHOP')}
             />
         )}
 
