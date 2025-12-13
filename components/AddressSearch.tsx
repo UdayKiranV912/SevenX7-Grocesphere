@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { geocode, reverse, NominatimResult } from '../services/nominatim';
+import { geocode, reverseGeocode, MapSearchResult } from '../services/maps';
 
 interface AddressSearchProps {
   initialAddress?: string;
@@ -16,19 +16,18 @@ export const AddressSearch: React.FC<AddressSearchProps> = ({
   className = ""
 }) => {
   const [query, setQuery] = useState(initialAddress);
-  const [results, setResults] = useState<NominatimResult[]>([]);
+  const [results, setResults] = useState<MapSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [showResults, setShowResults] = useState(false);
   
   const searchRef = useRef<HTMLDivElement>(null);
-  const debounceRef = useRef<NodeJS.Timeout>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setQuery(initialAddress);
   }, [initialAddress]);
 
-  // Handle outside click to close dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
@@ -51,7 +50,6 @@ export const AddressSearch: React.FC<AddressSearchProps> = ({
     }
 
     setLoading(true);
-    // Debounce 1000ms to respect Nominatim policy
     debounceRef.current = setTimeout(async () => {
       const data = await geocode(text);
       setResults(data);
@@ -60,7 +58,7 @@ export const AddressSearch: React.FC<AddressSearchProps> = ({
     }, 1000);
   };
 
-  const handleSelect = (item: NominatimResult) => {
+  const handleSelect = (item: MapSearchResult) => {
     const lat = parseFloat(item.lat);
     const lon = parseFloat(item.lon);
     setQuery(item.display_name);
@@ -70,7 +68,7 @@ export const AddressSearch: React.FC<AddressSearchProps> = ({
 
   const handleUseCurrentLocation = async () => {
     if (!navigator.geolocation) {
-      alert("Geolocation is not supported by your browser");
+      alert("Geolocation is not supported");
       return;
     }
 
@@ -79,20 +77,17 @@ export const AddressSearch: React.FC<AddressSearchProps> = ({
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude } = position.coords;
-        const data = await reverse(latitude, longitude);
+        const data = await reverseGeocode(latitude, longitude);
         
         setIsLocating(false);
         if (data && data.display_name) {
           setQuery(data.display_name);
           onSelect(data.display_name, latitude, longitude);
-        } else {
-          alert("Could not fetch address details.");
         }
       },
       (error) => {
         setIsLocating(false);
-        console.error("Geolocation error:", error);
-        alert("Unable to retrieve your location.");
+        alert("Unable to retrieve location.");
       },
       { timeout: 10000, enableHighAccuracy: true }
     );
@@ -106,10 +101,9 @@ export const AddressSearch: React.FC<AddressSearchProps> = ({
           value={query}
           onChange={(e) => handleSearch(e.target.value)}
           placeholder={placeholder}
-          className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-12 pr-12 py-4 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-brand-DEFAULT/50 focus:bg-white transition-all shadow-inner"
+          className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-12 pr-12 py-4 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-brand-DEFAULT/50 transition-all shadow-inner"
         />
         
-        {/* Search Icon */}
         <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
            {loading ? (
              <div className="w-4 h-4 border-2 border-slate-300 border-t-brand-DEFAULT rounded-full animate-spin"></div>
@@ -120,11 +114,9 @@ export const AddressSearch: React.FC<AddressSearchProps> = ({
            )}
         </div>
 
-        {/* GPS Button */}
         <button
           onClick={handleUseCurrentLocation}
-          className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-white rounded-xl shadow-sm border border-slate-100 text-blue-500 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-          title="Use Current Location"
+          className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-white rounded-xl shadow-sm border border-slate-100 text-blue-500 hover:bg-blue-50 transition-colors"
         >
            {isLocating ? (
              <div className="w-5 h-5 border-2 border-blue-200 border-t-blue-500 rounded-full animate-spin"></div>
@@ -136,22 +128,18 @@ export const AddressSearch: React.FC<AddressSearchProps> = ({
         </button>
       </div>
 
-      {/* Results Dropdown */}
       {showResults && results.length > 0 && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-soft-xl border border-slate-100 overflow-hidden z-[100] animate-fade-in-up max-h-60 overflow-y-auto">
+        <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden z-[100] max-h-60 overflow-y-auto">
           {results.map((result, index) => (
             <button
               key={index}
               onClick={() => handleSelect(result)}
-              className="w-full text-left px-5 py-3 hover:bg-slate-50 border-b border-slate-50 last:border-0 transition-colors flex items-start gap-3 group"
+              className="w-full text-left px-5 py-3 hover:bg-slate-50 border-b border-slate-50 flex items-start gap-3"
             >
-              <span className="mt-0.5 text-slate-400 group-hover:text-brand-DEFAULT">📍</span>
+              <span className="mt-0.5 text-slate-400">📍</span>
               <span className="text-xs font-bold text-slate-600 line-clamp-2">{result.display_name}</span>
             </button>
           ))}
-          <div className="bg-slate-50 px-3 py-1 text-[9px] text-slate-400 text-right font-mono">
-            Search by OpenStreetMap
-          </div>
         </div>
       )}
     </div>

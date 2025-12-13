@@ -3,7 +3,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { CartItem, DeliveryType, Store, Product } from '../types';
 import { MapVisualizer } from './MapVisualizer';
 import { INITIAL_PRODUCTS, MOCK_STORES } from '../constants';
-import { AddressSearch } from './AddressSearch';
 
 // --- Helper Component for Row Animation ---
 interface CartItemRowProps {
@@ -108,7 +107,7 @@ const SuggestionsList: React.FC<SuggestionsProps> = ({ suggestions, onAddProduct
 // --- Shared Cart Details Component ---
 export interface CartDetailsProps {
   cart: CartItem[];
-  onProceedToPay: (details: { deliveryType: DeliveryType; scheduledTime?: string; isPayLater?: boolean; splits: any; location?: { lat: number; lng: number } }) => void;
+  onProceedToPay: (details: { deliveryType: DeliveryType; scheduledTime?: string; isPayLater?: boolean; splits: any }) => void;
   onUpdateQuantity: (productId: string, delta: number) => void;
   onAddProduct: (product: Product) => void;
   mode: 'DELIVERY' | 'PICKUP';
@@ -140,16 +139,7 @@ export const CartDetails: React.FC<CartDetailsProps> = ({
   const [deliveryType, setDeliveryType] = useState<DeliveryType>('INSTANT');
   const [scheduledTime, setScheduledTime] = useState('');
   const [minScheduledTime, setMinScheduledTime] = useState('');
-  
-  // Local state to track location for map visualization (starts with GPS, updates with Search)
-  const [visualLocation, setVisualLocation] = useState<{lat: number; lng: number} | null>(userLocation);
-
-  // Sync visual location if userLocation changes initially and we haven't manually searched
-  useEffect(() => {
-    if (userLocation && !visualLocation) {
-        setVisualLocation(userLocation);
-    }
-  }, [userLocation]);
+  const [isLocatingAddress, setIsLocatingAddress] = useState(false);
   
   // CONSTANTS
   const MINIMUM_ORDER_VALUE = 1000; 
@@ -202,13 +192,50 @@ export const CartDetails: React.FC<CartDetailsProps> = ({
       return diffMinutes > 45; 
   };
 
-  const handleAddressSelect = (address: string, lat: number, lng: number) => {
-    onAddressChange(address);
-    setVisualLocation({ lat, lng });
+  const handleUseCurrentLocation = async () => {
+    setIsLocatingAddress(true);
+    let lat = userLocation?.lat;
+    let lng = userLocation?.lng;
+
+    if (!lat || !lng) {
+        try {
+             const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+                if (!navigator.geolocation) reject(new Error("Geolocation not supported"));
+                navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 8000 });
+            });
+            lat = position.coords.latitude;
+            lng = position.coords.longitude;
+        } catch (e) {
+            alert("Could not access location. Please enter address manually.");
+            setIsLocatingAddress(false);
+            return;
+        }
+    }
+
+    if (lat && lng) {
+        try {
+            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+            const data = await response.json();
+            if (data && data.display_name) {
+                onAddressChange(data.display_name);
+            } else {
+                alert("Could not determine address from coordinates.");
+            }
+        } catch (error) {
+            console.error("Geocoding failed", error);
+            alert("Network error fetching address.");
+        } finally {
+            setIsLocatingAddress(false);
+        }
+    } else {
+        setIsLocatingAddress(false);
+    }
   };
 
   const preparePaymentData = (isPayLater: boolean) => {
       // Create the split object for the Payment Gateway / Order Service
+      // NOTE: Customer pays full 'onlinePayableTotal' to Store.
+      // 'deliveryFee' is passed just for internal record keeping so Store knows they owe Driver.
       const splits = {
           storeAmount: onlinePayableTotal, // Customer pays Items + Delivery to Store
           storeUpi: activeStore?.upiId || 'store@upi',
@@ -222,8 +249,7 @@ export const CartDetails: React.FC<CartDetailsProps> = ({
           deliveryType, 
           scheduledTime, 
           isPayLater,
-          splits,
-          location: visualLocation || undefined
+          splits
       });
   };
 
@@ -286,8 +312,8 @@ export const CartDetails: React.FC<CartDetailsProps> = ({
          <div className="rounded-[2rem] overflow-hidden shadow-card border border-white h-48 relative">
             <MapVisualizer 
                 stores={mapStores}
-                userLat={visualLocation?.lat || 0}
-                userLng={visualLocation?.lng || 0}
+                userLat={userLocation?.lat || 0}
+                userLng={userLocation?.lng || 0}
                 selectedStore={activeStore} // Just highlights the last active one
                 onSelectStore={() => {}}
                 mode={mode}
@@ -373,12 +399,23 @@ export const CartDetails: React.FC<CartDetailsProps> = ({
             </div>
 
             {mode === 'DELIVERY' && (
-                <div className="animate-fade-in space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase pl-1">Delivery Address</label>
-                    <AddressSearch 
-                       initialAddress={deliveryAddress}
-                       onSelect={handleAddressSelect}
-                       placeholder="Search address or use GPS..."
+                <div className="animate-fade-in">
+                    <div className="flex justify-between items-center mb-2 pl-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase">Delivery Address</label>
+                        <button 
+                            onClick={handleUseCurrentLocation}
+                            disabled={isLocatingAddress}
+                            className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg flex items-center gap-1 hover:bg-blue-100 transition-colors touch-manipulation"
+                        >
+                            {isLocatingAddress ? 'Locating...' : '📍 Use Current Location'}
+                        </button>
+                    </div>
+                    <textarea
+                        value={deliveryAddress}
+                        onChange={(e) => onAddressChange(e.target.value)}
+                        placeholder="Enter full address for delivery..."
+                        className="w-full bg-slate-50 border-0 rounded-2xl p-4 text-sm font-bold text-slate-700 placeholder-slate-300 focus:ring-2 focus:ring-brand-DEFAULT focus:bg-white resize-none shadow-inner transition-all"
+                        rows={3}
                     />
                 </div>
             )}

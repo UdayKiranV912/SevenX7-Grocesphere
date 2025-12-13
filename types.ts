@@ -4,6 +4,11 @@ export interface BrandOption {
   price: number; // Override base price
 }
 
+export interface Variant {
+  name: string;
+  multiplier: number; // e.g., 1 for base, 0.5 for half, 5 for bulk
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -14,6 +19,7 @@ export interface Product {
   ingredients?: string;
   nutrition?: string;
   brands?: BrandOption[]; // List of available brands
+  variants?: Variant[]; // List of available sizes/types
 }
 
 export interface Store {
@@ -33,6 +39,7 @@ export interface Store {
 export interface CartItem extends Product {
   quantity: number;
   selectedBrand: string;     // The specific brand chosen
+  selectedVariant?: Variant; // The specific variant chosen
   originalProductId: string; // To link back to the main product for grouping
   storeId: string;
   storeName: string;

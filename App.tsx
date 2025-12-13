@@ -1,8 +1,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { INITIAL_PRODUCTS, MOCK_STORES } from './constants';
-import { Product, Store, CartItem, OrderMode, UserState, Order, DeliveryType } from './types';
-import { findNearbyStores } from './services/geminiService';
+import { INITIAL_PRODUCTS } from './constants';
+import { Product, Store, CartItem, OrderMode, UserState, Order, DeliveryType, Variant } from './types';
 import { fetchLiveStores, fetchStoreProducts, subscribeToStoreInventory } from './services/storeService';
 import { saveOrder } from './services/orderService'; 
 import { Auth } from './components/OTPVerification'; 
@@ -71,36 +70,52 @@ const PRODUCT_FAMILIES = [
     iconColor: 'bg-purple-100 text-purple-600',
     filter: (p: Product) => p.category === 'Snacks & Drinks'
   },
+  { 
+    id: 'personal', 
+    title: 'Care', 
+    emoji: '🧼', 
+    description: 'Hygiene',
+    theme: 'bg-pink-50/50 border-pink-100 text-pink-900',
+    iconColor: 'bg-pink-100 text-pink-600',
+    filter: (p: Product) => p.category === 'Personal Care'
+  },
+  { 
+    id: 'household', 
+    title: 'Home', 
+    emoji: '🧺', 
+    description: 'Cleaning',
+    theme: 'bg-cyan-50/50 border-cyan-100 text-cyan-900',
+    iconColor: 'bg-cyan-100 text-cyan-600',
+    filter: (p: Product) => p.category === 'Household'
+  },
 ];
 
 const App: React.FC = () => {
   // State
   const [user, setUser] = useState<UserState>({ isAuthenticated: false, phone: '', location: null });
   
-  // Use DB products if available, otherwise fallback
   const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orderMode, setOrderMode] = useState<OrderMode>('DELIVERY');
-  const [activeStore, setActiveStore] = useState<Store | null>(MOCK_STORES[0]); 
-  const [availableStores, setAvailableStores] = useState<Store[]>(MOCK_STORES);
+  const [activeStore, setActiveStore] = useState<Store | null>(null);
+  const [availableStores, setAvailableStores] = useState<Store[]>([]);
   const [isLoadingStores, setIsLoadingStores] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchSuggestions, setSearchSuggestions] = useState<string[]>([]);
   const [selectedFamilyId, setSelectedFamilyId] = useState<string | null>(null);
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [currentView, setCurrentView] = useState<'SHOP' | 'CART' | 'ORDERS' | 'PROFILE'>('SHOP');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [searchSuggestions, setSearchSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [showPaymentGateway, setShowPaymentGateway] = useState(false);
   
-  // Pending order state (either for new order or paying for existing one)
   const [pendingOrderDetails, setPendingOrderDetails] = useState<{ 
     deliveryType: DeliveryType; 
     scheduledTime?: string;
     isPayLater?: boolean;
     existingOrderId?: string; 
     amount?: number;
-    splits?: any; // NEW: Payment Splits
+    splits?: any; 
   } | null>(null);
   
   const hasFetchedStores = useRef(false);
@@ -108,10 +123,18 @@ const App: React.FC = () => {
 
   const totalCartItems = cart.reduce((acc, item) => acc + item.quantity, 0);
 
-  // Function to trigger location detection - IMPROVED
+  // Function to trigger location detection with address fetching
   const detectLocation = useCallback(() => {
+    // Both Demo Users and Real Users try to get real location first
     if (!navigator.geolocation) {
-        console.warn("Geolocation not supported by browser.");
+        console.warn("Geolocation not supported.");
+        // Fallback for Demo if no Geo
+        if(user.id === 'demo-user') {
+             const demoLoc = { lat: 12.9784, lng: 77.6408 }; // Indiranagar
+             setUser(prev => ({ ...prev, location: demoLoc, address: 'Indiranagar, Bengaluru (Demo Location)' }));
+             setDeliveryAddress('Indiranagar, Bengaluru (Demo Location)');
+             initializeStores(demoLoc.lat, demoLoc.lng, true);
+        }
         return;
     }
 
@@ -119,33 +142,59 @@ const App: React.FC = () => {
         navigator.geolocation.clearWatch(watchIdRef.current);
     }
     
+    const isDemo = user.id === 'demo-user';
+
+    // 1. One-time fetch for stores and address
     navigator.geolocation.getCurrentPosition(
-        (position) => {
+        async (position) => {
             const { latitude, longitude } = position.coords;
+            
+            // Update Coords
             setUser(prev => ({ ...prev, location: { lat: latitude, lng: longitude } }));
             
-            if (!hasFetchedStores.current) {
-                initializeStores(latitude, longitude);
+            // Reverse Geocode for Address
+            try {
+                const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+                const data = await response.json();
+                if (data && data.display_name) {
+                    const addr = data.display_name;
+                    setUser(prev => ({ ...prev, address: addr }));
+                    setDeliveryAddress(addr);
+                }
+            } catch (e) {
+                console.error("Address fetch failed", e);
+            }
+
+            // Fetch stores around the REAL location
+            initializeStores(latitude, longitude, isDemo);
+        },
+        (error) => {
+            console.warn("Location error:", error.message);
+            // Fallback logic for DEMO ONLY
+            if (isDemo) {
+                const demoLoc = { lat: 12.9784, lng: 77.6408 }; // Indiranagar Fallback
+                setUser(prev => ({ ...prev, location: demoLoc, address: 'Indiranagar, Bengaluru (Demo Fallback)' }));
+                setDeliveryAddress('Indiranagar, Bengaluru (Demo Fallback)');
+                initializeStores(demoLoc.lat, demoLoc.lng, true);
+                alert("Could not detect location. Using Bengaluru Demo Location.");
+            } else {
+                alert("Please enable location services to find nearby stores.");
             }
         },
-        (error) => console.warn("Location error:", error.message),
         { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
 
+    // 2. Watch for movement
     watchIdRef.current = navigator.geolocation.watchPosition(
         (position) => {
             const { latitude, longitude } = position.coords;
             setUser(prev => ({ ...prev, location: { lat: latitude, lng: longitude } }));
-            
-            if (!hasFetchedStores.current) {
-                initializeStores(latitude, longitude);
-            }
         },
         (err) => console.warn("Watch position silent error:", err),
         { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 }
     );
 
-  }, []);
+  }, [user.id]);
 
   useEffect(() => {
     return () => {
@@ -153,40 +202,30 @@ const App: React.FC = () => {
     };
   }, []);
 
-  // Fetch both Registered DB Stores and fallback OSM stores
-  const initializeStores = async (lat: number, lng: number) => {
+  const initializeStores = async (lat: number, lng: number, isDemo: boolean) => {
+      // Allow refetch if location changes significantly, but simple debounce here
+      if (hasFetchedStores.current && !isDemo) return; 
+      
       hasFetchedStores.current = true;
       setIsLoadingStores(true);
       
       try {
-          // 1. Fetch Real Registered Stores from Supabase
-          const dbStores = await fetchLiveStores(lat, lng);
+          // Fetch stores based on mode
+          // Demo: Returns Mock Stores sorted by 'lat/lng' distance
+          // Real: Returns Supabase Stores sorted by 'get_nearby_stores' RPC
+          const stores = await fetchLiveStores(lat, lng, isDemo);
 
-          // 2. Fetch OSM stores
-          const osmStores = await findNearbyStores(lat, lng);
-
-          // Combine: Prioritize DB stores
-          const allStores = [...dbStores];
-          
-          osmStores.forEach(osm => {
-             const exists = allStores.some(db => {
-                 const dist = Math.sqrt(Math.pow(db.lat - osm.lat, 2) + Math.pow(db.lng - osm.lng, 2));
-                 return dist < 0.0005; 
-             });
-             if (!exists) allStores.push(osm);
-          });
-
-          if (allStores.length === 0) {
-              setAvailableStores(MOCK_STORES);
-              setActiveStore(MOCK_STORES[0]);
+          if (stores.length > 0) {
+              setAvailableStores(stores);
+              setActiveStore(stores[0]);
           } else {
-              setAvailableStores(allStores);
-              setActiveStore(allStores[0]);
+              setAvailableStores([]);
+              setActiveStore(null);
           }
       } catch (e) {
           console.error(e);
-          setAvailableStores(MOCK_STORES);
-          setActiveStore(MOCK_STORES[0]);
+          setAvailableStores([]);
+          setActiveStore(null);
       } finally {
           setIsLoadingStores(false);
       }
@@ -197,36 +236,29 @@ const App: React.FC = () => {
     if (!activeStore) return;
 
     const loadInventory = async () => {
-        const isDbStore = activeStore.id.length > 20 && !activeStore.id.startsWith('osm');
-        if (isDbStore) {
+        // If it's a real store ID (UUID from Supabase)
+        const isRealStore = activeStore.id.length > 20 && !activeStore.id.startsWith('blr-');
+        
+        if (isRealStore) {
+            // Fetch REAL inventory for this store
             const storeSpecificProducts = await fetchStoreProducts(activeStore.id);
-            if (storeSpecificProducts.length > 0) {
-                setProducts(prev => {
-                    const newProds = [...prev];
-                    storeSpecificProducts.forEach(sp => {
-                        const idx = newProds.findIndex(p => p.id === sp.id);
-                        if (idx >= 0) newProds[idx] = sp;
-                        else newProds.push(sp);
-                    });
-                    return newProds;
-                });
-            }
-
+            setProducts(storeSpecificProducts); // This will replace global products with ONLY store products
+            
+            // Subscription for Real-time price/stock updates
             const subscription = subscribeToStoreInventory(activeStore.id, async () => {
                 const updated = await fetchStoreProducts(activeStore.id);
-                 setProducts(prev => {
-                    const newProds = [...prev];
-                    updated.forEach(sp => {
-                        const idx = newProds.findIndex(p => p.id === sp.id);
-                        if (idx >= 0) newProds[idx] = sp;
-                    });
-                    return newProds;
-                });
+                setProducts(updated);
             });
 
             return () => { subscription.unsubscribe(); };
         } else {
-            setProducts(INITIAL_PRODUCTS);
+            // Demo Mode: Filter products by 'availableProductIds' to simulate varied store types
+            if (activeStore.availableProductIds && activeStore.availableProductIds.length > 0) {
+                const filtered = INITIAL_PRODUCTS.filter(p => activeStore.availableProductIds.includes(p.id));
+                setProducts(filtered);
+            } else {
+                setProducts(INITIAL_PRODUCTS);
+            }
         }
     };
     loadInventory();
@@ -234,7 +266,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (user.isAuthenticated) {
-        detectLocation();
+        detectLocation(); // Auto detect for BOTH Demo and Real users now
     }
   }, [user.isAuthenticated, detectLocation]);
 
@@ -242,40 +274,39 @@ const App: React.FC = () => {
   useEffect(() => {
     if (searchTerm.length > 0) {
       const term = searchTerm.toLowerCase();
-      const availableProducts = activeStore ? products.filter(p => activeStore.availableProductIds.includes(p.id)) : products;
-
-      const prodMatches = availableProducts
+      // Only show suggestions based on what's currently in the product list (which is store specific)
+      const prodMatches = products
         .filter(p => p.name.toLowerCase().includes(term) || p.category.toLowerCase().includes(term))
         .map(p => p.name)
         .slice(0, 4);
-      const familyMatches = PRODUCT_FAMILIES
-        .filter(f => f.title.toLowerCase().includes(term) || f.description.toLowerCase().includes(term))
-        .map(f => f.title);
-      const combined = Array.from(new Set([...prodMatches, ...familyMatches]));
-      setSearchSuggestions(combined);
-      setShowSuggestions(combined.length > 0);
+        
+      setSearchSuggestions(prodMatches);
+      setShowSuggestions(prodMatches.length > 0);
     } else {
       setShowSuggestions(false);
     }
-  }, [searchTerm, products, activeStore]);
+  }, [searchTerm, products]);
 
   const handleLoginSuccess = (userData: UserState) => {
     setUser(userData);
+    // If user has saved address, use it, else wait for detectLocation
     if (userData.address) {
         setDeliveryAddress(userData.address);
     }
   };
 
   const handleDemoLogin = () => {
+    // Initialize Demo User without location initially
+    // The useEffect hook above will trigger 'detectLocation'
     setUser({
       isAuthenticated: true,
       id: 'demo-user',
       name: 'Demo User',
       phone: '9999999999',
-      location: null,
-      address: 'Indiranagar, Bangalore'
+      location: null, // Will be filled by Geolocation
+      address: '',
+      savedCards: [] // Initialize empty
     });
-    setDeliveryAddress('Indiranagar, Bangalore');
   };
 
   const handleLogout = () => {
@@ -283,16 +314,23 @@ const App: React.FC = () => {
     setCart([]);
     setCurrentView('SHOP');
     hasFetchedStores.current = false;
+    setActiveStore(null);
+    setAvailableStores([]);
   };
 
-  const addToCart = (product: Product, quantity = 1, brand?: string, brandPrice?: number) => {
+  const addToCart = (product: Product, quantity = 1, brand?: string, brandPrice?: number, variant?: Variant) => {
     if (!activeStore) {
-        alert("Please select a store first.");
+        alert("Please wait for stores to load or check your location.");
         return;
     }
     const selectedBrand = brand || 'Generic';
-    const finalPrice = brandPrice || product.price;
-    const cartId = `${product.id}-${selectedBrand}-${activeStore.id}`;
+    // If variant exists, multiply brand price by variant multiplier
+    const basePrice = brandPrice || product.price;
+    const finalPrice = variant ? Math.round(basePrice * variant.multiplier) : basePrice;
+    
+    // Create unique ID combining Product + Brand + Variant + Store
+    const variantKey = variant ? `-${variant.name}` : '';
+    const cartId = `${product.id}-${selectedBrand}${variantKey}-${activeStore.id}`;
 
     setCart(prev => {
       const existing = prev.find(item => item.id === cartId);
@@ -304,6 +342,7 @@ const App: React.FC = () => {
           id: cartId, 
           originalProductId: product.id,
           selectedBrand: selectedBrand,
+          selectedVariant: variant,
           price: finalPrice,
           name: brand && brand !== 'Generic' ? `${brand} ${product.name}` : product.name,
           quantity,
@@ -347,23 +386,12 @@ const App: React.FC = () => {
     if (!details) return;
 
     if (details.existingOrderId) {
-        // ... (existing update logic) ...
         setShowPaymentGateway(false);
         setPendingOrderDetails(null);
         setCurrentView('ORDERS');
         return;
     }
 
-    // Creating new orders
-    const deadline = details.scheduledTime 
-        ? new Date(new Date(details.scheduledTime).getTime() - 30 * 60000).toISOString()
-        : undefined;
-
-    // We only support SINGLE store payment flow for the split logic in this MVP
-    // If cart has multiple stores, splits apply to each individually or aggregated.
-    // For simplicity, we assume one active store flow or basic split.
-    
-    // Create one order per store
     const itemsByStore: Record<string, CartItem[]> = {};
     cart.forEach(item => {
         if (!itemsByStore[item.storeId]) itemsByStore[item.storeId] = [];
@@ -373,10 +401,13 @@ const App: React.FC = () => {
     const newOrders: Order[] = Object.entries(itemsByStore).map(([storeId, items]) => {
         const storeItem = items[0];
         const subTotal = items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-        // Recalculate fees locally just to be safe for the Object
         const deliveryFee = details.splits?.deliveryFee || 0;
         const handlingFee = details.splits?.handlingFee || 0;
         const total = subTotal + deliveryFee + handlingFee;
+
+        // Find the actual store object to get coordinates
+        const sourceStore = availableStores.find(s => s.id === storeId) || (activeStore?.id === storeId ? activeStore : null);
+        const storeLoc = sourceStore ? { lat: sourceStore.lat, lng: sourceStore.lng } : { lat: 0, lng: 0 };
 
         return {
             id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
@@ -385,15 +416,14 @@ const App: React.FC = () => {
             total: total,
             status: 'Pending',
             paymentStatus: details.isPayLater ? 'PENDING' : 'PAID',
-            paymentDeadline: deadline,
             mode: orderMode,
             deliveryType: details.deliveryType,
             scheduledTime: details.scheduledTime,
             deliveryAddress: orderMode === 'DELIVERY' ? deliveryAddress : undefined,
             storeName: storeItem.storeName,
-            storeLocation: { lat: 0, lng: 0 }, // Should fetch real location
+            storeLocation: storeLoc, 
             userLocation: user.location || undefined,
-            splits: details.splits // Save split info
+            splits: details.splits
         };
     });
 
@@ -412,23 +442,16 @@ const App: React.FC = () => {
   };
 
   const openSupport = () => {
-     const text = "Hi SevenX7 Support, I need help with my order.";
+     const text = "Hi Grocesphere Support, I need help.";
      const whatsapp = `https://wa.me/919483496940?text=${encodeURIComponent(text)}`;
-     const mail = `mailto:sevenx7@sevenx7.com?subject=Support Request&body=${text}`;
-     
-     // Simple choice dialog
-     const choice = confirm("Contact Support?\nOK for WhatsApp, Cancel for Email");
-     if (choice) window.open(whatsapp, '_blank');
-     else window.location.href = mail;
+     window.open(whatsapp, '_blank');
   };
 
   if (!user.isAuthenticated) {
     return <Auth onLoginSuccess={handleLoginSuccess} onDemoLogin={handleDemoLogin} />;
   }
 
-  // Payment Gateway Render
   if (showPaymentGateway && pendingOrderDetails) {
-      // Calculate total if not set
       let amount = pendingOrderDetails.amount || 0;
       if (!amount && pendingOrderDetails.splits) {
           const s = pendingOrderDetails.splits;
@@ -439,6 +462,13 @@ const App: React.FC = () => {
           <PaymentGateway 
              amount={amount}
              splits={pendingOrderDetails.splits}
+             savedCards={user.savedCards || []}
+             onSavePaymentMethod={(method) => {
+                 setUser(prev => ({ 
+                     ...prev, 
+                     savedCards: [...(prev.savedCards || []), method] 
+                 }));
+             }}
              onSuccess={() => finalizeOrder(undefined)}
              onCancel={() => setShowPaymentGateway(false)}
              isDemo={user.id === 'demo-user'}
@@ -446,13 +476,14 @@ const App: React.FC = () => {
       );
   }
 
-  const displayedProducts = activeStore 
-    ? products.filter(p => activeStore.availableProductIds.includes(p.id)) 
-    : products;
+  // Filter products based on Active Store type/inventory and User Search
+  const displayedProducts = products; // 'products' state is already store-scoped in useEffect
 
   const filteredProducts = displayedProducts.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           p.category.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    // Also filter by selected Family if any
     const matchesFamily = selectedFamilyId 
         ? PRODUCT_FAMILIES.find(f => f.id === selectedFamilyId)?.filter(p)
         : true;
@@ -473,19 +504,33 @@ const App: React.FC = () => {
                    </div>
                 </div>
 
-                <div className="flex items-center gap-2 bg-slate-100 rounded-full pl-1 pr-3 py-1 mt-2 cursor-default select-none">
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs text-white shadow-sm transition-colors ${
-                        activeStore?.type === 'produce' ? 'bg-emerald-500' : 
-                        activeStore?.type === 'dairy' ? 'bg-blue-500' : 'bg-orange-500'
-                    }`}>
-                        {activeStore?.type === 'produce' ? '🥦' : activeStore?.type === 'dairy' ? '🥛' : '🏪'}
+                {activeStore ? (
+                    <div className="flex items-center gap-2 bg-slate-100 rounded-full pl-1 pr-3 py-1 mt-2 cursor-default select-none animate-fade-in">
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs text-white shadow-sm transition-colors ${
+                            activeStore?.type === 'produce' ? 'bg-emerald-500' : 
+                            activeStore?.type === 'dairy' ? 'bg-blue-500' : 'bg-orange-500'
+                        }`}>
+                            {activeStore?.type === 'produce' ? '🥦' : activeStore?.type === 'dairy' ? '🥛' : '🏪'}
+                        </div>
+                        <div className="flex flex-col items-start">
+                            <span className="text-[9px] font-bold text-slate-400 uppercase leading-none mb-0.5">Shopping At</span>
+                            <span className="text-xs font-bold text-slate-800 leading-none truncate max-w-[120px]">
+                                {activeStore.name}
+                            </span>
+                        </div>
                     </div>
-                    <div className="flex flex-col items-start">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase leading-none mb-0.5">Shopping At</span>
-                        <span className="text-xs font-bold text-slate-800 leading-none truncate max-w-[120px]">
-                            {isLoadingStores ? 'Locating...' : (activeStore?.name || 'Select Store')}
-                        </span>
+                ) : (
+                    <div className="mt-2 text-xs font-bold text-red-400 animate-pulse">
+                        {isLoadingStores ? 'Locating stores nearby...' : 'No stores found nearby.'}
                     </div>
+                )}
+                
+                {/* ADDRESS DISPLAY */}
+                <div className="flex items-center gap-1 mt-1 max-w-[200px]" onClick={detectLocation}>
+                    <span className="text-brand-DEFAULT text-xs">📍</span>
+                    <span className="text-[10px] font-bold text-slate-500 truncate cursor-pointer hover:text-brand-dark transition-colors">
+                        {user.address || 'Locating...'}
+                    </span>
                 </div>
             </div>
 
@@ -499,7 +544,6 @@ const App: React.FC = () => {
       </header>
 
       <main className="max-w-md mx-auto pt-4 relative">
-        {/* Support Button (Floating) */}
         <button 
             onClick={openSupport}
             className="fixed bottom-24 right-4 z-[60] w-12 h-12 bg-white rounded-full shadow-lg border border-slate-100 flex items-center justify-center text-2xl hover:scale-110 transition-transform active:scale-95"
@@ -514,13 +558,12 @@ const App: React.FC = () => {
             <div className="relative group z-30">
               <input 
                 type="text" 
-                placeholder="Search fresh items..." 
-                className="w-full pl-12 pr-4 py-4 bg-white rounded-2xl shadow-soft text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-DEFAULT/50 transition-all font-bold text-sm"
+                placeholder={activeStore ? "Search items..." : "Finding stores..."}
+                disabled={!activeStore}
+                className="w-full pl-12 pr-4 py-4 bg-white rounded-2xl shadow-soft text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-DEFAULT/50 transition-all font-bold text-sm disabled:opacity-50"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                onFocus={() => searchTerm.length > 0 && setShowSuggestions(true)}
               />
-              {/* ...suggestions... */}
             </div>
 
             {/* Map & Toggle */}
@@ -545,18 +588,18 @@ const App: React.FC = () => {
             </div>
 
             {/* Families & Products */}
-            {!searchTerm && (
-                <div className="grid grid-cols-3 gap-2">
+            {activeStore && !searchTerm && (
+                <div className="grid grid-cols-4 gap-2">
                 {PRODUCT_FAMILIES.map((family) => {
                     const isSelected = selectedFamilyId === family.id;
                     return (
                     <button
                         key={family.id}
                         onClick={() => setSelectedFamilyId(isSelected ? null : family.id)}
-                        className={`relative p-3 rounded-2xl border transition-all duration-300 flex flex-col items-center gap-2 ${isSelected ? 'bg-slate-800 border-slate-900 shadow-lg scale-[1.02]' : `${family.theme} hover:scale-[1.02] bg-white`}`}
+                        className={`relative p-2 rounded-2xl border transition-all duration-300 flex flex-col items-center gap-1 ${isSelected ? 'bg-slate-800 border-slate-900 shadow-lg scale-[1.02]' : `${family.theme} hover:scale-[1.02] bg-white`}`}
                     >
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xl shadow-sm ${isSelected ? 'bg-white/10 text-white' : 'bg-white'}`}>{family.emoji}</div>
-                        <span className={`text-[10px] font-black uppercase tracking-wide ${isSelected ? 'text-white' : ''}`}>{family.title}</span>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-lg shadow-sm ${isSelected ? 'bg-white/10 text-white' : 'bg-white'}`}>{family.emoji}</div>
+                        <span className={`text-[9px] font-black uppercase tracking-wide ${isSelected ? 'text-white' : ''}`}>{family.title}</span>
                     </button>
                     );
                 })}
@@ -568,21 +611,30 @@ const App: React.FC = () => {
                  <h2 className="text-xl font-black text-slate-800">{searchTerm ? 'Search Results' : 'Fresh Picks'}</h2>
                  <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-lg">{filteredProducts.length} items</span>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                    {filteredProducts.map((product) => (
-                    <StickerProduct 
-                        key={product.id} 
-                        product={product} 
-                        onAdd={(p) => addToCart(p)}
-                        onUpdateQuantity={(id, delta) => {
-                            const item = cart.find(c => c.originalProductId === product.id && c.storeId === activeStore?.id);
-                            if (item) updateQuantity(item.id, delta);
-                        }}
-                        onClick={(p) => setSelectedProduct(p)}
-                        count={cart.filter(item => item.originalProductId === product.id && item.storeId === activeStore?.id).reduce((s,i) => s + i.quantity, 0)}
-                    />
-                    ))}
-              </div>
+              
+              {activeStore ? (
+                  <div className="grid grid-cols-2 gap-3">
+                        {filteredProducts.map((product) => (
+                        <StickerProduct 
+                            key={product.id} 
+                            product={product} 
+                            onAdd={(p) => addToCart(p)}
+                            onUpdateQuantity={(id, delta) => {
+                                // Simple update for items without specific variants or just base product
+                                const item = cart.find(c => c.originalProductId === product.id && c.storeId === activeStore?.id);
+                                if (item) updateQuantity(item.id, delta);
+                            }}
+                            onClick={(p) => setSelectedProduct(p)}
+                            count={cart.filter(item => item.originalProductId === product.id && item.storeId === activeStore?.id).reduce((acc, curr) => acc + curr.quantity, 0)}
+                        />
+                        ))}
+                  </div>
+              ) : (
+                  <div className="flex flex-col items-center justify-center py-12 text-center opacity-50">
+                      <div className="text-4xl mb-2">🏪</div>
+                      <p className="font-bold text-slate-400">Select a store to see items</p>
+                  </div>
+              )}
             </div>
           </div>
         )}
@@ -606,16 +658,48 @@ const App: React.FC = () => {
         )}
 
         {currentView === 'ORDERS' && (
-            <MyOrders userLocation={user.location} onPayNow={handlePayForExistingOrder} userId={user.id} />
+            <MyOrders 
+                userLocation={user.location} 
+                userId={user.id}
+                onPayNow={(order) => handlePayForExistingOrder(order)}
+            />
         )}
 
         {currentView === 'PROFILE' && (
-            <UserProfile user={user} onLogout={handleLogout} onUpdateUser={(updates) => setUser(prev => ({ ...prev, ...updates }))} />
+            <UserProfile 
+                user={user} 
+                onUpdateUser={(updates) => setUser(prev => ({ ...prev, ...updates }))}
+                onLogout={handleLogout}
+            />
         )}
+
+        {/* Product Details Modal */}
+        {selectedProduct && (
+            <ProductDetailsModal 
+                product={selectedProduct}
+                onClose={() => setSelectedProduct(null)}
+                onAdd={(p, q, b, pr) => addToCart(p, q, b, pr)}
+            />
+        )}
+
+        {/* Cart Sheet (always visible if cart has items) */}
+        <CartSheet 
+            cart={cart}
+            onProceedToPay={handleProceedToPay}
+            onUpdateQuantity={(id, d) => updateQuantity(id, d)}
+            onAddProduct={(p) => addToCart(p)}
+            mode={orderMode}
+            onModeChange={setOrderMode}
+            deliveryAddress={deliveryAddress}
+            onAddressChange={setDeliveryAddress}
+            activeStore={activeStore}
+            stores={availableStores}
+            userLocation={user.location}
+        />
+
       </main>
 
-      {/* Navigation */}
-      <nav className="fixed bottom-6 left-6 right-6 max-w-sm mx-auto bg-white/90 backdrop-blur-xl border border-white/20 shadow-float rounded-full px-2 py-2 flex justify-between items-center z-50">
+      <nav className="fixed bottom-6 left-6 right-6 max-w-sm mx-auto bg-white/90 backdrop-blur-xl border-2 border-slate-100 shadow-float rounded-full px-2 py-2 flex justify-between items-center z-[60]">
           {[
             { id: 'SHOP', icon: '🏠', label: 'Home' },
             { id: 'CART', icon: '🛒', label: 'Cart', badge: totalCartItems },
@@ -635,25 +719,6 @@ const App: React.FC = () => {
               );
           })}
       </nav>
-
-      {selectedProduct && <ProductDetailsModal product={selectedProduct} onClose={() => setSelectedProduct(null)} onAdd={(p, q, brand, price) => addToCart(p, q, brand, price)} />}
-
-      {currentView === 'SHOP' && cart.length > 0 && (
-         <CartSheet 
-            cart={cart}
-            onProceedToPay={handleProceedToPay}
-            onUpdateQuantity={updateQuantity}
-            onAddProduct={(p) => addToCart(p)}
-            mode={orderMode}
-            onModeChange={setOrderMode}
-            deliveryAddress={deliveryAddress}
-            onAddressChange={setDeliveryAddress}
-            activeStore={activeStore}
-            stores={availableStores}
-            userLocation={user.location}
-         />
-      )}
-
     </div>
   );
 };

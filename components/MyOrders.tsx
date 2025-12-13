@@ -14,6 +14,7 @@ export const MyOrders: React.FC<MyOrdersProps> = ({ userLocation, onPayNow, user
   const [orders, setOrders] = useState<Order[]>([]);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [driverLocations, setDriverLocations] = useState<Record<string, {lat: number, lng: number}>>({});
 
   // Fetch Orders on Mount or userId change
   useEffect(() => {
@@ -93,6 +94,36 @@ export const MyOrders: React.FC<MyOrdersProps> = ({ userLocation, onPayNow, user
 
     return () => clearInterval(interval);
   }, [userId]);
+
+  // DRIVER LOCATION SIMULATOR (Interpolation)
+  useEffect(() => {
+      // Only simulate if we have an expanded order that is 'On the way'
+      if (!expandedOrderId) return;
+      
+      const order = orders.find(o => o.id === expandedOrderId);
+      // Basic checks: must be active delivery with locations
+      if (!order || order.status !== 'On the way' || !order.storeLocation || !order.userLocation) return;
+      
+      // Prevent simulation if coords are missing (0,0)
+      if ((order.storeLocation.lat === 0 && order.storeLocation.lng === 0) || 
+          (order.userLocation.lat === 0 && order.userLocation.lng === 0)) return;
+
+      // Start Simulation Loop
+      let progress = 0;
+      const interval = setInterval(() => {
+          // Move 0.5% every 50ms (Total trip ~10 seconds loop for demo)
+          progress += 0.005; 
+          if (progress > 1) progress = 0; // Loop back
+          
+          // Linear Interpolation (LERP)
+          const lat = order.storeLocation!.lat + (order.userLocation!.lat - order.storeLocation!.lat) * progress;
+          const lng = order.storeLocation!.lng + (order.userLocation!.lng - order.storeLocation!.lng) * progress;
+          
+          setDriverLocations(prev => ({...prev, [order.id]: {lat, lng}}));
+      }, 50);
+
+      return () => clearInterval(interval);
+  }, [expandedOrderId, orders]); // Re-run if order status updates
 
   if (loading) {
     return (
@@ -182,6 +213,8 @@ export const MyOrders: React.FC<MyOrdersProps> = ({ userLocation, onPayNow, user
             availableProductIds: []
         };
 
+        const currentDriverLoc = driverLocations[order.id];
+
         return (
           <div 
             key={order.id} 
@@ -263,7 +296,7 @@ export const MyOrders: React.FC<MyOrdersProps> = ({ userLocation, onPayNow, user
                     
                      {/* MAP SECTION inside Details */}
                     {!isCancelled && !isCompleted && order.storeLocation && !isPaymentPending && (
-                        <div className="h-40 rounded-2xl overflow-hidden mb-6 border border-slate-100 shadow-inner relative z-0" onClick={(e) => e.stopPropagation()}>
+                        <div className="h-48 rounded-2xl overflow-hidden mb-6 border border-slate-100 shadow-inner relative z-0" onClick={(e) => e.stopPropagation()}>
                             <MapVisualizer
                                 stores={[mapStore]}
                                 selectedStore={mapStore}
@@ -274,7 +307,15 @@ export const MyOrders: React.FC<MyOrdersProps> = ({ userLocation, onPayNow, user
                                 showRoute={true}
                                 enableExternalNavigation={isPickup}
                                 className="h-full"
+                                driverLocation={currentDriverLoc} // Pass calculated driver location
                             />
+                            {/* Live Tag overlay */}
+                            {order.status === 'On the way' && (
+                                <div className="absolute top-3 left-3 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-[10px] font-bold shadow-sm z-[1000] flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                                    LIVE TRACKING
+                                </div>
+                            )}
                         </div>
                     )}
 

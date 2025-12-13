@@ -4,9 +4,10 @@ import React from 'react';
 interface SevenX7LogoProps {
   size?: 'xs' | 'small' | 'medium' | 'large';
   isWelcome?: boolean;
+  onNewsClick?: () => void;
 }
 
-const SevenX7Logo: React.FC<SevenX7LogoProps> = ({ size = 'small', isWelcome = false }) => {
+const SevenX7Logo: React.FC<SevenX7LogoProps> = ({ size = 'small', isWelcome = false, onNewsClick }) => {
   
   const getTextSize = () => {
       switch(size) {
@@ -27,7 +28,7 @@ const SevenX7Logo: React.FC<SevenX7LogoProps> = ({ size = 'small', isWelcome = f
   const trackingClass = size === 'xs' ? 'tracking-[0.15em]' : isLarge ? 'tracking-[0.2em]' : 'tracking-[0.3em]';
 
   return (
-    <div className={`group flex items-center justify-center font-display font-black ${gapClass} select-none w-full`}>
+    <div className={`group flex items-center font-display font-black ${gapClass} select-none`}>
       
       {/* SEVEN */}
       <span 
@@ -37,7 +38,7 @@ const SevenX7Logo: React.FC<SevenX7LogoProps> = ({ size = 'small', isWelcome = f
       </span>
 
       {/* X */}
-      <div className={`relative flex items-center justify-center ${xSize} transition-transform duration-700 ${isLarge ? '' : 'group-hover:scale-110 group-hover:rotate-12'}`}>
+      <div className={`relative flex items-center justify-center ${xSize} transition-transform duration-700 ${isLarge ? '' : 'group-hover:scale-110 group-hover:rotate-12'}`} onClick={onNewsClick}>
          {/* Static Glow Effect for Large, Pulse for Small */}
          <div className={`absolute inset-0 bg-emerald-400/30 blur-lg rounded-full ${isLarge ? 'scale-[1.5] opacity-50' : 'scale-125 animate-pulse'} transition-colors duration-500 group-hover:bg-lime-400/40`}></div>
          
@@ -51,9 +52,7 @@ const SevenX7Logo: React.FC<SevenX7LogoProps> = ({ size = 'small', isWelcome = f
       </div>
 
       {/* 7 */}
-      <div className="relative">
-        <span className={`${textSizeClass} text-slate-900 font-black group-hover:text-black transition-colors`}>7</span>
-      </div>
+      <span className={`${textSizeClass} text-slate-900 font-black uppercase ${trackingClass} group-hover:text-black transition-colors`}>7</span>
 
     </div>
   );

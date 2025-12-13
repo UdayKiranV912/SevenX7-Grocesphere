@@ -2,7 +2,6 @@
 import React, { useState } from 'react';
 import { UserState } from '../types';
 import { updateUserProfile } from '../services/userService';
-import { AddressSearch } from './AddressSearch';
 
 interface UserProfileProps {
   user: UserState;
@@ -13,6 +12,7 @@ interface UserProfileProps {
 export const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdateUser, onLogout }) => {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isEditingAddress, setIsEditingAddress] = useState(false);
+  const [isLoadingAddress, setIsLoadingAddress] = useState(false);
   
   const [formData, setFormData] = useState({
     name: user.name || '',
@@ -51,11 +51,72 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdateUser, on
     }
   };
 
-  const handleAddressSelect = (address: string, lat: number, lon: number) => {
-    setFormData(prev => ({ ...prev, address }));
-    // Optionally update location if your backend supported it, 
-    // for now we just save the address string and update local user state
-    onUpdateUser({ location: { lat, lng: lon } });
+  const handleAutofillLocation = async () => {
+      setIsLoadingAddress(true);
+      
+      let lat = user.location?.lat;
+      let lng = user.location?.lng;
+
+      // If location is not in state, try to fetch it now
+      if (!lat || !lng) {
+        try {
+            const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+                if (!navigator.geolocation) reject(new Error("Geolocation not supported"));
+                navigator.geolocation.getCurrentPosition(resolve, reject, { 
+                    timeout: 10000, 
+                    enableHighAccuracy: true 
+                });
+            });
+            lat = position.coords.latitude;
+            lng = position.coords.longitude;
+            // Update global user state with this new location
+            onUpdateUser({ location: { lat, lng } });
+        } catch (error: any) {
+            console.error("Location access failed", error);
+            
+            // Robust Error Extraction
+            let errorMessage = 'Unknown error';
+            if (error instanceof Error) {
+                errorMessage = error.message;
+            } else if (typeof error === 'object' && error !== null) {
+                // GeolocationPositionError has a message property
+                if ('message' in error) {
+                     errorMessage = String((error as any).message);
+                } else {
+                     errorMessage = 'Location signal weak or unavailable';
+                }
+            } else if (typeof error === 'string') {
+                errorMessage = error;
+            }
+
+            if ((error as any)?.code === 1) {
+                 alert("Location permission denied. Please enable GPS in your browser settings.");
+            } else {
+                 alert(`Could not access location: ${errorMessage}`);
+            }
+            
+            setIsLoadingAddress(false);
+            return;
+        }
+      }
+
+      try {
+          // Use OpenStreetMap Nominatim for free reverse geocoding
+          const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+          if (!response.ok) throw new Error("Failed to fetch address info");
+          
+          const data = await response.json();
+          if (data && data.display_name) {
+              setFormData(prev => ({ ...prev, address: data.display_name }));
+          } else {
+              alert("Address not found for these coordinates. Please enter manually.");
+          }
+      } catch (error) {
+          console.error("Geocoding error", error);
+          alert("Failed to fetch address details. Please type manually.");
+      } finally {
+          setIsLoadingAddress(false);
+      }
   };
 
   return (
@@ -129,17 +190,29 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdateUser, on
                   <div className="p-6 bg-slate-50/50">
                       <div className="flex justify-between items-center mb-3">
                         <label className="text-[10px] font-bold text-brand-DEFAULT uppercase tracking-wide">Edit Address</label>
+                        <button 
+                            onClick={handleAutofillLocation}
+                            disabled={isLoadingAddress}
+                            className="flex items-center gap-1 text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-1 rounded-lg hover:bg-blue-100 transition-colors"
+                        >
+                            {isLoadingAddress ? (
+                                <span className="animate-spin">⏳</span>
+                            ) : (
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                                </svg>
+                            )}
+                            Use Current Location
+                        </button>
                       </div>
-                      
-                      <div className="mb-4">
-                          <AddressSearch 
-                            initialAddress={formData.address} 
-                            onSelect={handleAddressSelect}
-                            placeholder="Type address or use GPS..."
-                            className="w-full"
-                          />
-                      </div>
-                      
+                      <textarea 
+                          value={formData.address}
+                          onChange={(e) => setFormData({...formData, address: e.target.value})}
+                          className="w-full bg-white border border-slate-200 rounded-2xl p-4 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-brand-DEFAULT/20 focus:border-brand-DEFAULT resize-none mb-4 shadow-inner"
+                          rows={3}
+                          placeholder="House No, Street, Landmark, Area..."
+                          autoFocus
+                      />
                       <div className="flex gap-3">
                           <button 
                             onClick={() => setIsEditingAddress(false)} 
@@ -179,6 +252,26 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdateUser, on
                             </p>
                         </div>
                     </div>
+
+                    {/* Current Location Quick Action */}
+                    <button 
+                        onClick={() => {
+                            setIsEditingAddress(true);
+                            setTimeout(handleAutofillLocation, 100);
+                        }}
+                        className="w-full flex items-center gap-4 p-4 hover:bg-blue-50/50 rounded-[1.5rem] transition-colors group border border-dashed border-slate-200"
+                    >
+                        <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0 text-blue-500 border border-blue-100 shadow-sm">
+                            💠
+                        </div>
+                        <div className="flex-1 min-w-0 text-left">
+                            <h5 className="font-black text-slate-800 text-sm">Use Current Location</h5>
+                            <p className="text-xs font-bold text-slate-400">Tap to auto-detect and save as address</p>
+                        </div>
+                        <div className="text-slate-300 group-hover:text-blue-500 transition-colors">
+                            ➔
+                        </div>
+                    </button>
                   </div>
               )}
           </div>
