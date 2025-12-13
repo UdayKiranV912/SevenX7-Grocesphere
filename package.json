@@ -16,12 +16,16 @@
     "path": "^0.12.7",
     "@vitejs/plugin-react": "^5.1.2",
     "vite": "^7.2.7",
-    "url": "^0.11.4"
+    "url": "^0.11.4",
+    "leaflet": "^1.9.4",
+    "react-leaflet": "^4.2.1",
+    "react-router-dom": "^6.20.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
     "typescript": "~5.8.2",
-    "vite": "^6.2.0"
+    "vite": "^6.2.0",
+    "@types/leaflet": "^1.9.8"
   }
 }

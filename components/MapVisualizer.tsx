@@ -1,6 +1,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { Store, OrderMode } from '../types';
+import L from 'leaflet';
 
 interface MapVisualizerProps {
   stores: Store[];
@@ -13,7 +14,7 @@ interface MapVisualizerProps {
   showRoute?: boolean;
   enableExternalNavigation?: boolean;
   onRequestLocation?: () => void;
-  driverLocation?: { lat: number; lng: number }; // NEW: Driver Location Prop
+  driverLocation?: { lat: number; lng: number }; 
 }
 
 export const MapVisualizer: React.FC<MapVisualizerProps> = ({ 
@@ -30,11 +31,12 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
   driverLocation
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<any>(null);
-  const markersRef = useRef<any[]>([]);
-  const userMarkerRef = useRef<any>(null);
-  const driverMarkerRef = useRef<any>(null); // NEW: Driver Marker Ref
-  const routeLineRef = useRef<any>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+  const markersRef = useRef<L.Marker[]>([]);
+  const userMarkerRef = useRef<L.Marker | null>(null);
+  const accuracyCircleRef = useRef<L.Circle | null>(null);
+  const driverMarkerRef = useRef<L.Marker | null>(null); 
+  const routeLineRef = useRef<L.Polyline | null>(null);
   const [isLocating, setIsLocating] = useState(false);
 
   // Styling for distinct markers
@@ -57,6 +59,7 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
   // Popup Content for "View Details"
   const getPopupHtml = (store: Store) => {
     const emoji = store.type === 'produce' ? '🥦' : store.type === 'dairy' ? '🥛' : '🏪';
+    // NOTE: using onclick="window.handleStoreSelect(...)" to bridge Leaflet HTML -> React
     return `
       <div class="min-w-[160px] font-sans">
          <div class="flex items-center gap-3 mb-2">
@@ -75,9 +78,12 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
                 <span>${store.distance}</span>
              </div>
              <div class="flex-1 text-right">
-                <span class="text-[9px] font-black text-brand-DEFAULT uppercase tracking-wide bg-brand-light px-2 py-1 rounded-md">
+                <button 
+                  onclick="window.handleStoreSelect('${store.id}')"
+                  class="text-[9px] font-black text-brand-DEFAULT uppercase tracking-wide bg-brand-light px-3 py-1.5 rounded-md hover:bg-brand-DEFAULT hover:text-white transition-colors cursor-pointer"
+                >
                    Shop Now →
-                </span>
+                </button>
              </div>
          </div>
       </div>
@@ -94,7 +100,7 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
     if (onRequestLocation) onRequestLocation();
     
     if (mapInstanceRef.current && userLat && userLng) {
-      mapInstanceRef.current.flyTo([userLat, userLng], 15, { animate: true, duration: 1.5 });
+      mapInstanceRef.current.flyTo([userLat, userLng], 17, { animate: true, duration: 1.5 });
       setTimeout(() => setIsLocating(false), 1000);
     } else {
       setTimeout(() => setIsLocating(false), 2000);
@@ -109,26 +115,58 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
   };
 
   useEffect(() => {
-    const L = (window as any).L;
-    if (!L || !mapContainerRef.current) return;
+    // Bridge for Leaflet Popup Button to React State
+    (window as any).handleStoreSelect = (storeId: string) => {
+        const store = stores.find(s => s.id === storeId);
+        if (store) {
+            onSelectStore(store);
+            // Also center on it for better UX
+            mapInstanceRef.current?.flyTo([store.lat, store.lng], 16, { animate: true });
+        }
+    };
+
+    return () => {
+        // Cleanup global handler
+        delete (window as any).handleStoreSelect;
+    };
+  }, [stores, onSelectStore]);
+
+  useEffect(() => {
+    if (!mapContainerRef.current) return;
 
     // Initialize Map
     if (!mapInstanceRef.current) {
       mapInstanceRef.current = L.map(mapContainerRef.current, {
         center: [mapCenterLat, mapCenterLng],
-        zoom: 13,
+        zoom: 16, // Closer start zoom for better accuracy perception
         zoomControl: false,
         attributionControl: false,
         layers: [
             L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-                maxZoom: 20
+                maxZoom: 20,
+                subdomains: 'abcd',
             })
         ]
       });
     }
 
-    // User Location Marker with Pulse
+    // User Location Marker with Pulse & Accuracy Circle
     if (userLat && userLng) {
+      // 1. Accuracy Circle
+      if (!accuracyCircleRef.current) {
+         accuracyCircleRef.current = L.circle([userLat, userLng], {
+             radius: 30, // Approximate accuracy radius in meters
+             color: '#3b82f6',
+             fillColor: '#3b82f6',
+             fillOpacity: 0.1,
+             weight: 1,
+             dashArray: '4, 4'
+         }).addTo(mapInstanceRef.current);
+      } else {
+         accuracyCircleRef.current.setLatLng([userLat, userLng]);
+      }
+
+      // 2. The Pin
       if (!userMarkerRef.current) {
         const userIcon = L.divIcon({
           className: 'user-marker-container',
@@ -172,7 +210,7 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
     }
 
     // Store Markers
-    markersRef.current.forEach(m => mapInstanceRef.current.removeLayer(m));
+    markersRef.current.forEach(m => mapInstanceRef.current?.removeLayer(m));
     markersRef.current = [];
 
     stores.forEach(store => {
@@ -185,7 +223,7 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
       });
 
       const marker = L.marker([store.lat, store.lng], { icon, zIndexOffset: isSelected ? 900 : 100 })
-        .addTo(mapInstanceRef.current)
+        .addTo(mapInstanceRef.current!)
         .bindPopup(getPopupHtml(store), {
             closeButton: false,
             className: 'store-popup-container',
@@ -198,9 +236,9 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
         // Animate to fit both user and store if possible, else just store
         if (userLat && userLng) {
              const bounds = L.latLngBounds([[userLat, userLng], [store.lat, store.lng]]);
-             mapInstanceRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 15, animate: true });
+             mapInstanceRef.current?.fitBounds(bounds, { padding: [50, 50], maxZoom: 16, animate: true });
         } else {
-             mapInstanceRef.current.flyTo([store.lat, store.lng], 15, { animate: true, duration: 1 });
+             mapInstanceRef.current?.flyTo([store.lat, store.lng], 16, { animate: true, duration: 1 });
         }
       });
 
@@ -218,7 +256,7 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
     }
 
     if (showRoute && userLat && userLng && selectedStore) {
-       const latlngs = [[userLat, userLng], [selectedStore.lat, selectedStore.lng]];
+       const latlngs: [number, number][] = [[userLat, userLng], [selectedStore.lat, selectedStore.lng]];
        
        // Dashed line for 'pending' path feel
        routeLineRef.current = L.polyline(latlngs, {
@@ -234,17 +272,22 @@ export const MapVisualizer: React.FC<MapVisualizerProps> = ({
        // Include driver in bounds if exists
        if (driverLocation) bounds.extend([driverLocation.lat, driverLocation.lng]);
        
-       mapInstanceRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 15, animate: true });
+       mapInstanceRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 16, animate: true });
     } else if (selectedStore && userLat && userLng) {
         // If simply selecting a store, ensure user is also visible
         const bounds = L.latLngBounds([[userLat, userLng], [selectedStore.lat, selectedStore.lng]]);
-        mapInstanceRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 15, animate: true });
+        mapInstanceRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 16, animate: true });
     } else if (selectedStore) {
        // If no route, just fly to store
-       mapInstanceRef.current.flyTo([selectedStore.lat, selectedStore.lng], 15, { animate: true });
+       mapInstanceRef.current.flyTo([selectedStore.lat, selectedStore.lng], 16, { animate: true });
     } else if (userLat && userLng) {
-       // Just fly to user if no store selected
-       mapInstanceRef.current.flyTo([userLat, userLng], 15, { animate: true });
+       // Just fly to user if no store selected (on mount)
+       // Check if map center is far from user
+       const center = mapInstanceRef.current.getCenter();
+       const dist = center.distanceTo([userLat, userLng]);
+       if (dist > 500) {
+           mapInstanceRef.current.flyTo([userLat, userLng], 16, { animate: true });
+       }
     }
 
   }, [stores, userLat, userLng, selectedStore, showRoute, mode, driverLocation]);

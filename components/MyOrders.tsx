@@ -1,8 +1,9 @@
 
 import React, { useEffect, useState } from 'react';
 import { Order, Store, OrderMode } from '../types';
-import { MapVisualizer } from './MapVisualizer';
+import MapCustomer from './MapCustomer';
 import { getUserOrders, subscribeToUserOrders } from '../services/orderService';
+import { MapVisualizer } from './MapVisualizer';
 
 interface MyOrdersProps {
   userLocation: { lat: number; lng: number } | null;
@@ -95,27 +96,18 @@ export const MyOrders: React.FC<MyOrdersProps> = ({ userLocation, onPayNow, user
     return () => clearInterval(interval);
   }, [userId]);
 
-  // DRIVER LOCATION SIMULATOR (Interpolation)
+  // DRIVER LOCATION SIMULATOR (Interpolation) for Demo Mode
   useEffect(() => {
-      // Only simulate if we have an expanded order that is 'On the way'
-      if (!expandedOrderId) return;
+      if (!expandedOrderId || userId !== 'demo-user') return;
       
       const order = orders.find(o => o.id === expandedOrderId);
-      // Basic checks: must be active delivery with locations
       if (!order || order.status !== 'On the way' || !order.storeLocation || !order.userLocation) return;
       
-      // Prevent simulation if coords are missing (0,0)
-      if ((order.storeLocation.lat === 0 && order.storeLocation.lng === 0) || 
-          (order.userLocation.lat === 0 && order.userLocation.lng === 0)) return;
-
-      // Start Simulation Loop
       let progress = 0;
       const interval = setInterval(() => {
-          // Move 0.5% every 50ms (Total trip ~10 seconds loop for demo)
           progress += 0.005; 
-          if (progress > 1) progress = 0; // Loop back
+          if (progress > 1) progress = 0; 
           
-          // Linear Interpolation (LERP)
           const lat = order.storeLocation!.lat + (order.userLocation!.lat - order.storeLocation!.lat) * progress;
           const lng = order.storeLocation!.lng + (order.userLocation!.lng - order.storeLocation!.lng) * progress;
           
@@ -123,7 +115,7 @@ export const MyOrders: React.FC<MyOrdersProps> = ({ userLocation, onPayNow, user
       }, 50);
 
       return () => clearInterval(interval);
-  }, [expandedOrderId, orders]); // Re-run if order status updates
+  }, [expandedOrderId, orders, userId]);
 
   if (loading) {
     return (
@@ -146,7 +138,7 @@ export const MyOrders: React.FC<MyOrdersProps> = ({ userLocation, onPayNow, user
     );
   }
 
-  // Helper to determine status steps and progress
+  // Helper to determine status steps
   const getStatusInfo = (status: string, mode: OrderMode) => {
       const deliverySteps = ['Pending', 'Preparing', 'On the way', 'Delivered'];
       const pickupSteps = ['Pending', 'Preparing', 'Ready', 'Picked Up'];
@@ -188,7 +180,6 @@ export const MyOrders: React.FC<MyOrdersProps> = ({ userLocation, onPayNow, user
         const isExpanded = expandedOrderId === order.id;
         const isCompleted = order.status === 'Delivered' || order.status === 'Picked Up';
         const isCancelled = order.status === 'Cancelled';
-        const isPickup = order.mode === 'PICKUP';
         const isPaymentPending = order.paymentStatus === 'PENDING';
         
         const { steps, currentIndex, progress, getLabel, getIcon } = getStatusInfo(order.status, order.mode);
@@ -199,21 +190,13 @@ export const MyOrders: React.FC<MyOrdersProps> = ({ userLocation, onPayNow, user
         if (order.status === 'Pending') statusColor = 'bg-yellow-50 text-yellow-700';
         if (isPaymentPending) statusColor = 'bg-orange-50 text-orange-700';
 
-        // Map store for visualization
-        const mapStore: Store = {
-            id: `order-store-${order.id}`,
-            name: order.storeName || 'Store',
-            lat: order.storeLocation?.lat || 0,
-            lng: order.storeLocation?.lng || 0,
-            address: '',
-            rating: 0,
-            distance: '',
-            isOpen: true,
-            type: 'general',
-            availableProductIds: []
-        };
+        const storeLoc: [number, number] = [order.storeLocation?.lat || 0, order.storeLocation?.lng || 0];
+        const custLoc: [number, number] = [order.userLocation?.lat || 0, order.userLocation?.lng || 0];
 
-        const currentDriverLoc = driverLocations[order.id];
+        // Only show live MapCustomer for Delivery "On the way"
+        const showLiveTracking = order.status === 'On the way' && order.mode === 'DELIVERY' && !isCancelled && !isPaymentPending;
+        // Fallback demo driver
+        const demoDriverLoc = driverLocations[order.id];
 
         return (
           <div 
@@ -239,33 +222,31 @@ export const MyOrders: React.FC<MyOrdersProps> = ({ userLocation, onPayNow, user
                </div>
             </div>
 
-            {/* VISUAL TIMELINE */}
             {!isCancelled && !isPaymentPending && (
-                 <div className="mb-6 px-2 pt-2 pb-2">
-                    <div className="relative">
-                        {/* Background Line */}
-                        <div className="absolute top-1/2 left-0 w-full h-1 bg-slate-100 rounded-full -translate-y-1/2 z-0"></div>
+                 <div className="mb-4 mt-2 px-1">
+                    <div className="relative pb-6">
+                        {/* Progress Bar Background */}
+                        <div className="absolute top-4 left-0 w-full h-1 bg-slate-100 rounded-full z-0"></div>
                         
-                        {/* Progress Line */}
+                        {/* Active Progress Bar */}
                         <div 
-                            className="absolute top-1/2 left-0 h-1 bg-brand-DEFAULT rounded-full -translate-y-1/2 z-0 transition-all duration-1000 ease-out"
+                            className="absolute top-4 left-0 h-1 bg-brand-DEFAULT rounded-full z-0 transition-all duration-1000 ease-out"
                             style={{ width: `${progress}%` }}
                         ></div>
-
+                        
                         {/* Steps */}
                         <div className="flex justify-between relative z-10 w-full">
                             {steps.map((step, i) => {
                                 const isActive = i === currentIndex;
                                 const isDone = i < currentIndex;
                                 const isFuture = i > currentIndex;
-
                                 return (
-                                    <div key={step} className="flex flex-col items-center">
+                                    <div key={step} className="flex flex-col items-center relative">
                                         <div 
-                                            className={`w-8 h-8 rounded-full flex items-center justify-center text-xs transition-all duration-300 border-4 
-                                            ${isDone ? 'bg-brand-DEFAULT border-brand-DEFAULT text-white scale-90' : ''}
-                                            ${isActive ? 'bg-white border-brand-DEFAULT text-brand-DEFAULT scale-110 shadow-lg' : ''}
-                                            ${isFuture ? 'bg-slate-50 border-slate-100 text-slate-300' : ''}
+                                            className={`w-8 h-8 rounded-full flex items-center justify-center text-xs transition-all duration-500 border-[3px] 
+                                            ${isDone ? 'bg-brand-DEFAULT border-brand-DEFAULT text-white' : ''}
+                                            ${isActive ? 'bg-white border-brand-DEFAULT text-brand-DEFAULT scale-110 shadow-lg ring-4 ring-brand-light' : ''}
+                                            ${isFuture ? 'bg-white border-slate-200 text-slate-300' : ''}
                                             `}
                                         >
                                             {isDone ? (
@@ -276,12 +257,13 @@ export const MyOrders: React.FC<MyOrdersProps> = ({ userLocation, onPayNow, user
                                                 <span>{getIcon(step)}</span>
                                             )}
                                         </div>
-                                        <div className={`text-[9px] font-bold uppercase mt-2 transition-colors ${isActive ? 'text-brand-dark' : isDone ? 'text-brand-DEFAULT' : 'text-slate-300'}`}>
+                                        
+                                        {/* Label */}
+                                        <span className={`absolute top-10 text-[9px] font-black uppercase tracking-wide whitespace-nowrap transition-colors duration-300 ${
+                                            isActive ? 'text-brand-DEFAULT' : isDone ? 'text-brand-medium' : 'text-slate-300'
+                                        }`}>
                                             {getLabel(step)}
-                                        </div>
-                                        {isActive && (
-                                            <div className="absolute top-0 w-8 h-8 bg-brand-DEFAULT rounded-full animate-ping -z-10 opacity-30"></div>
-                                        )}
+                                        </span>
                                     </div>
                                 );
                             })}
@@ -290,31 +272,31 @@ export const MyOrders: React.FC<MyOrdersProps> = ({ userLocation, onPayNow, user
                  </div>
             )}
 
-            {/* Expanded Content: Details, Map, Items... */}
             {isExpanded && (
                 <div className="mt-4 pt-4 border-t border-slate-50 animate-fade-in">
                     
-                     {/* MAP SECTION inside Details */}
-                    {!isCancelled && !isCompleted && order.storeLocation && !isPaymentPending && (
+                     {/* MAP SECTION */}
+                    {!isCancelled && !isCompleted && !isPaymentPending && (
                         <div className="h-48 rounded-2xl overflow-hidden mb-6 border border-slate-100 shadow-inner relative z-0" onClick={(e) => e.stopPropagation()}>
-                            <MapVisualizer
-                                stores={[mapStore]}
-                                selectedStore={mapStore}
-                                userLat={userLocation?.lat || 0}
-                                userLng={userLocation?.lng || 0}
-                                mode={order.mode}
-                                onSelectStore={() => {}}
-                                showRoute={true}
-                                enableExternalNavigation={isPickup}
-                                className="h-full"
-                                driverLocation={currentDriverLoc} // Pass calculated driver location
-                            />
-                            {/* Live Tag overlay */}
-                            {order.status === 'On the way' && (
-                                <div className="absolute top-3 left-3 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-[10px] font-bold shadow-sm z-[1000] flex items-center gap-2">
-                                    <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                                    LIVE TRACKING
-                                </div>
+                            {showLiveTracking ? (
+                                <MapCustomer 
+                                    orderId={order.id}
+                                    store={storeLoc}
+                                    customer={custLoc}
+                                    className="h-full"
+                                />
+                            ) : (
+                                <MapVisualizer 
+                                    stores={[]} 
+                                    selectedStore={{lat: storeLoc[0], lng: storeLoc[1]} as any}
+                                    userLat={custLoc[0]}
+                                    userLng={custLoc[1]}
+                                    mode={order.mode}
+                                    onSelectStore={() => {}}
+                                    showRoute={true}
+                                    driverLocation={demoDriverLoc} // Use demo driver for non-live tracking (preparing/demo mode)
+                                    className="h-full rounded-none"
+                                />
                             )}
                         </div>
                     )}
