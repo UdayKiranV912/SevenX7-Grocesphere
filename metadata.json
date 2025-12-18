@@ -1,5 +1,5 @@
 {
-  "name": "My Sevenx7 Grocesphere",
+  "name": "My SevenXStore Grocesphere",
   "description": "Hyper-local grocery delivery connecting you to community marts with real-time tracking.",
   "requestFramePermissions": [
     "geolocation"

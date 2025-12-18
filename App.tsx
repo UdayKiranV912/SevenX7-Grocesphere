@@ -129,8 +129,8 @@ const AppContent: React.FC = () => {
       id: 'demo-user',
       name: 'Demo User',
       phone: '9999999999',
-      location: null,
-      address: '',
+      location: { lat: 12.9784, lng: 77.6408 }, // Set Indiranagar as default demo location
+      address: 'Indiranagar, Bengaluru',         // Set default demo address to prevent "Locating..."
       savedCards: []
     });
     window.history.replaceState({ view: 'SHOP' }, '');

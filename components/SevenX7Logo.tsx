@@ -11,11 +11,11 @@ const SevenX7Logo: React.FC<SevenX7LogoProps> = ({ size = 'small', isWelcome = f
   
   const getTextSize = () => {
       switch(size) {
-          case 'xs': return 'text-[10px]';
-          case 'small': return 'text-xs';
-          case 'medium': return 'text-lg';
-          case 'large': return 'text-4xl';
-          default: return 'text-xs';
+          case 'xs': return 'text-[8px]';
+          case 'small': return 'text-[10px]';
+          case 'medium': return 'text-base';
+          case 'large': return 'text-3xl';
+          default: return 'text-[10px]';
       }
   };
 
@@ -25,21 +25,21 @@ const SevenX7Logo: React.FC<SevenX7LogoProps> = ({ size = 'small', isWelcome = f
   // Minimal gaps to make it look like one word
   const gapClass = 'gap-0.5';
   
-  const xSize = isLarge ? 'text-6xl' : size === 'medium' ? 'text-3xl' : size === 'xs' ? 'text-sm' : 'text-xl';
+  const xSize = isLarge ? 'text-5xl' : size === 'medium' ? 'text-2xl' : size === 'xs' ? 'text-[10px]' : 'text-lg';
   // Tight tracking for "one word" feel
-  const trackingClass = 'tracking-tight';
+  const trackingClass = 'tracking-tighter';
 
   return (
     <div className={`group flex items-center font-display ${gapClass} select-none`}>
       
       {/* SEVEN - Black, standard bold */}
       <span 
-        className={`${textSizeClass} text-black font-bold uppercase ${trackingClass}`}
+        className={`${textSizeClass} text-black font-black uppercase ${trackingClass}`}
       >
         Seven
       </span>
 
-      {/* X - Black, extra bold (font-black) */}
+      {/* X - Black, extra bold */}
       <div className={`relative flex items-center justify-center ${xSize} leading-none`} onClick={onNewsClick}>
          <span 
             className="relative z-10 text-black font-black inline-block origin-center" 
@@ -49,8 +49,8 @@ const SevenX7Logo: React.FC<SevenX7LogoProps> = ({ size = 'small', isWelcome = f
          </span>
       </div>
 
-      {/* 7 - Black, standard bold */}
-      <span className={`${textSizeClass} text-black font-bold uppercase ${trackingClass}`}>7</span>
+      {/* STORE - Replacing the '7' or '24' as requested */}
+      <span className={`${textSizeClass} text-black font-black uppercase ${trackingClass}`}>Store</span>
 
     </div>
   );
