@@ -49,8 +49,8 @@ const SevenX7Logo: React.FC<SevenX7LogoProps> = ({ size = 'small', isWelcome = f
          </span>
       </div>
 
-      {/* STORE - Replacing the '7' or '24' as requested */}
-      <span className={`${textSizeClass} text-black font-black uppercase ${trackingClass}`}>Store</span>
+      {/* 7 - Reverting back from 'Store' as requested */}
+      <span className={`${textSizeClass} text-black font-black uppercase ${trackingClass}`}>7</span>
 
     </div>
   );
