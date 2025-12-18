@@ -1,9 +1,8 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { UserState, CartItem, Store, Product, OrderMode, Variant, Order } from '../types';
+import { UserState, CartItem, Store, Product, OrderMode, Variant, Order, OrderType } from '../types';
 import { INITIAL_PRODUCTS, MOCK_STORES } from '../constants';
-import { getStoreProducts } from '../services/products';
-import { fetchLiveStores } from '../services/storeService';
+import { fetchLiveStores, fetchStoreProducts } from '../services/storeService';
 import { reverseGeocode } from '../services/maps';
 import { getUserOrders, subscribeToUserOrders, saveOrder } from '../services/orderService';
 
@@ -26,7 +25,6 @@ interface StoreContextType {
   isLoading: boolean;
   isProductLoading: boolean;
   
-  // Orders & Tracking
   orders: Order[];
   addOrder: (order: Order) => Promise<void>;
   activeOrder: Order | null;
@@ -34,20 +32,16 @@ interface StoreContextType {
   currentView: ViewState;
   setCurrentView: (view: ViewState) => void;
 
-  // Global UI State
   viewingProduct: Product | null;
   setViewingProduct: (product: Product | null) => void;
 
-  // Toast
   toast: { show: boolean; message: string; action?: { label: string, onClick: () => void } };
   showToast: (message: string, action?: { label: string, onClick: () => void }) => void;
   hideToast: () => void;
 
-  // Store Switch Prompt
   pendingStoreSwitch: Store | null;
   resolveStoreSwitch: (accepted: boolean) => void;
 
-  // Favorites
   favorites: string[];
   toggleFavorite: (productId: string) => void;
   isFavorite: (productId: string) => boolean;
@@ -55,7 +49,6 @@ interface StoreContextType {
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
-// Helper for distance
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371;
   const dLat = (lat2 - lat1) * (Math.PI/180);
@@ -70,7 +63,6 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserState>({ isAuthenticated: false, phone: '', location: null });
-  // Initialize cart from localStorage
   const [cart, setCart] = useState<CartItem[]>(() => {
     try {
         const saved = localStorage.getItem('grocesphere_cart');
@@ -85,21 +77,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [isLoading, setIsLoading] = useState(false);
   const [isProductLoading, setIsProductLoading] = useState(false);
   
-  // Navigation State
   const [currentView, setCurrentView] = useState<ViewState>('SHOP');
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
 
-  // Orders State
   const [orders, setOrders] = useState<Order[]>([]);
   const [driverLocations, setDriverLocations] = useState<Record<string, {lat: number, lng: number}>>({});
 
-  // Toast State
   const [toast, setToast] = useState<{ show: boolean; message: string; action?: { label: string, onClick: () => void } }>({ show: false, message: '' });
-
-  // Store Switch Prompt State
   const [pendingStoreSwitch, setPendingStoreSwitch] = useState<Store | null>(null);
 
-  // Favorites State
   const [favorites, setFavorites] = useState<string[]>(() => {
       try {
           const saved = localStorage.getItem('grocesphere_favorites');
@@ -107,28 +93,21 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       } catch (e) { return []; }
   });
 
-  // Internal state to track stores user has declined to switch to
   const [ignoredStores, setIgnoredStores] = useState<string[]>([]);
-  
-  // Ref to prevent spamming alerts (Cooldown mechanism)
   const lastAlertTimeRef = useRef<number>(0);
 
-  // Derived Active Order (The most recent one that isn't completed/cancelled)
   const activeOrder = orders.find(o => 
       o.status !== 'Delivered' && o.status !== 'Picked Up' && o.status !== 'Cancelled'
   ) || null;
 
-  // Persist Favorites
   useEffect(() => {
       localStorage.setItem('grocesphere_favorites', JSON.stringify(favorites));
   }, [favorites]);
 
-  // Cart Persistence
   useEffect(() => {
       localStorage.setItem('grocesphere_cart', JSON.stringify(cart));
   }, [cart]);
 
-  // --- ORDER MANAGEMENT & SIMULATION ---
   const addOrder = async (newOrder: Order) => {
       setOrders(prev => [newOrder, ...prev]);
       if (user.id === 'demo-user') {
@@ -137,7 +116,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           localStorage.setItem('grocesphere_orders', JSON.stringify([newOrder, ...existingOrders]));
       } else if (user.id) {
           try {
-              await saveOrder(user.id, newOrder);
+              // Ensure order_type is set based on store_type
+              const finalOrder = {
+                  ...newOrder,
+                  order_type: (activeStore?.store_type || 'grocery') as OrderType
+              };
+              await saveOrder(user.id, finalOrder);
           } catch (e) {
               console.error("Failed to save order to DB", e);
               showToast("Error saving order. Please check connection.");
@@ -151,15 +135,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       try {
         if (user.id === 'demo-user') {
           const savedOrders = localStorage.getItem('grocesphere_orders');
-          if (savedOrders) {
-             const parsed: Order[] = JSON.parse(savedOrders);
-             const unique = parsed.filter((v,i,a)=>a.findIndex(t=>(t.id === v.id))===i);
-             setOrders(unique);
-          }
+          if (savedOrders) setOrders(JSON.parse(savedOrders));
         } else if (user.id) {
           const dbOrders = await getUserOrders(user.id);
-          const unique = dbOrders.filter((v,i,a)=>a.findIndex(t=>(t.id === v.id))===i);
-          setOrders(unique);
+          setOrders(dbOrders);
         }
       } catch (error) { console.error(error); }
     };
@@ -192,6 +171,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setOrders(prev => {
         let hasChanges = false;
         const updated = prev.map((o): Order => {
+            if (user.id !== 'demo-user') return o; // Only simulate for demo
             const orderTime = new Date(o.date).getTime();
             if (Date.now() - orderTime > 30 * 60 * 1000) return o;
             if (o.status === 'Cancelled' || o.status === 'Delivered' || o.status === 'Picked Up') return o;
@@ -211,259 +191,70 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
         return hasChanges ? updated : prev;
       });
-    }, 10000);
+    }, 15000);
 
-    const driverInterval = setInterval(() => {
-        setDriverLocations(prev => {
-            const nextLocs = { ...prev };
-            let updated = false;
-            orders.forEach(order => {
-                if (order.status === 'On the way' && order.storeLocation && user.location) {
-                    if (!nextLocs[order.id]) {
-                        nextLocs[order.id] = { ...order.storeLocation };
-                    }
-                    const driver = nextLocs[order.id];
-                    const speed = 0.00015;
-                    const dLat = user.location.lat - driver.lat;
-                    const dLng = user.location.lng - driver.lng;
-                    const distance = Math.sqrt(dLat*dLat + dLng*dLng);
-                    if (distance > 0.0002) {
-                        nextLocs[order.id] = {
-                            lat: driver.lat + (dLat / distance) * speed,
-                            lng: driver.lng + (dLng / distance) * speed
-                        };
-                        updated = true;
-                    }
-                }
-            });
-            return updated ? nextLocs : prev;
-        });
-    }, 1000);
-    return () => {
-        clearInterval(statusInterval);
-        clearInterval(driverInterval);
-    };
-  }, [orders.length, user.location, user.id, user.isAuthenticated]);
+    return () => clearInterval(statusInterval);
+  }, [orders.length, user.id, user.isAuthenticated]);
 
-  // Smart Store Proximity Check (Non-blocking)
-  useEffect(() => {
-      // Don't check if we already have a pending prompt
-      if (pendingStoreSwitch) return;
-
-      const now = Date.now();
-      // Reduced cooldown to 60s for better responsiveness to driving
-      if (now - lastAlertTimeRef.current < 60000) return;
-
-      if (user.location && activeStore && availableStores.length > 0) {
-          const distToActive = calculateDistance(user.location.lat, user.location.lng, activeStore.lat, activeStore.lng);
-          
-          // Find the absolute closest store
-          const closest = availableStores.reduce((prev, curr) => {
-              const distPrev = calculateDistance(user.location!.lat, user.location!.lng, prev.lat, prev.lng);
-              const distCurr = calculateDistance(user.location!.lat, user.location!.lng, curr.lat, curr.lng);
-              return distCurr < distPrev ? curr : prev;
-          });
-
-          const distToClosest = calculateDistance(user.location.lat, user.location.lng, closest.lat, closest.lng);
-          const isSameAsActive = closest.id === activeStore.id;
-          const isIgnored = ignoredStores.includes(closest.id);
-
-          if (!isSameAsActive && !isIgnored) {
-              // Condition 1: User is extremely close to a different store (< 0.5km)
-              // This suggests they physically arrived at a new location.
-              if (distToClosest < 0.5) {
-                  lastAlertTimeRef.current = Date.now();
-                  setPendingStoreSwitch(closest);
-                  return;
-              }
-
-              // Condition 2: Current store is far (> 2km) and there is a significantly closer store
-              // We want to avoid switching if the difference is negligible.
-              // Logic: If closest is less than 70% of distance to active, it's worth switching.
-              if (distToActive > 2.0 && distToClosest < (distToActive * 0.7)) {
-                  lastAlertTimeRef.current = Date.now();
-                  setPendingStoreSwitch(closest);
-              }
-          }
-      }
-  }, [user.location, activeStore, availableStores, ignoredStores, pendingStoreSwitch]);
-
-  const resolveStoreSwitch = (accepted: boolean) => {
-      if (accepted && pendingStoreSwitch) {
-          if (cart.length > 0 && cart[0].storeId !== pendingStoreSwitch.id) {
-              setCart([]); 
-          }
-          setActiveStore(pendingStoreSwitch);
-          setIgnoredStores([]); 
-          showToast(`Switched to ${pendingStoreSwitch.name}`);
-      } else if (!accepted && pendingStoreSwitch) {
-          setIgnoredStores(prev => [...prev, pendingStoreSwitch.id]);
-      }
-      setPendingStoreSwitch(null);
-  };
-
-  // 1. Location & Store Discovery
   const detectLocation = useCallback(() => {
     if (!navigator.geolocation) {
-        alert("Geolocation is not supported by this browser.");
         setIsLoading(false);
         return;
     }
-
     setIsLoading(true);
-
-    const handleSuccess = async (pos: GeolocationPosition) => {
+    navigator.geolocation.getCurrentPosition(async (pos) => {
         const { latitude, longitude } = pos.coords;
-        
         setUser(prev => ({ ...prev, location: { lat: latitude, lng: longitude } }));
-        
         try {
             const addressData = await reverseGeocode(latitude, longitude);
             if (addressData?.display_name) {
                 setUser(prev => ({ ...prev, address: addressData.display_name.split(',')[0] }));
             }
-        } catch (e) {
-            // keep previous or default
-        }
-
-        try {
-          const isDemo = user.id === 'demo-user';
-          // Fetch stores based on LIVE location for both Demo and Real users.
-          // In Demo mode, it generates mock stores around the real location.
-          // In Real mode, it ONLY queries the database.
-          const stores = await fetchLiveStores(latitude, longitude, isDemo);
-          
-          if (stores.length > 0) {
-              setAvailableStores(stores);
-              
-              setActiveStore(prev => {
-                 if (prev && stores.find(s => s.id === prev.id)) return prev;
-                 
-                 if (cart.length > 0) {
-                     const cartStoreId = cart[0].storeId;
-                     const found = stores.find(s => s.id === cartStoreId);
-                     if (found) return found;
-                 }
-                 return stores[0]; // Default to closest
-              });
-          } else {
-              // NO STORES FOUND
-              setAvailableStores([]);
-              setActiveStore(null);
-          }
-          
+            const stores = await fetchLiveStores(latitude, longitude, user.id === 'demo-user');
+            if (stores.length > 0) {
+                setAvailableStores(stores);
+                setActiveStore(prev => {
+                   if (prev && stores.find(s => s.id === prev.id)) return prev;
+                   if (cart.length > 0) {
+                       const found = stores.find(s => s.id === cart[0].storeId);
+                       if (found) return found;
+                   }
+                   return stores[0];
+                });
+            } else {
+                setAvailableStores([]);
+                setActiveStore(null);
+            }
         } catch (e) {
           console.error(e);
-          setAvailableStores([]);
-          setActiveStore(null);
         } finally {
           setIsLoading(false);
         }
-    };
+    }, () => setIsLoading(false), { enableHighAccuracy: true });
+  }, [user.id, cart]);
 
-    const handleError = (err: GeolocationPositionError) => {
-        console.warn("Location error:", err);
-        // On error, we still need a fallback for the app to function minimally,
-        // but we flag it via UI instead of faking it for Real users.
-        if (user.id === 'demo-user') {
-            // Only for demo user fallback if sensor fails entirely
-            const fallbackLat = 12.9716;
-            const fallbackLng = 77.5946;
-            setUser(prev => ({ 
-                ...prev, 
-                location: { lat: fallbackLat, lng: fallbackLng },
-                address: 'Bengaluru (Demo)' 
-            }));
-            fetchLiveStores(fallbackLat, fallbackLng, true).then(stores => {
-                setAvailableStores(stores);
-                setActiveStore(stores[0]);
-            });
-        } else {
-            alert("Location access is required to find local stores. Please enable location permissions.");
-        }
-        setIsLoading(false);
-    };
-
-    navigator.geolocation.getCurrentPosition(
-        handleSuccess,
-        (highAccuracyError) => {
-            console.log("High accuracy location failed, retrying...", highAccuracyError.message);
-            navigator.geolocation.getCurrentPosition(handleSuccess, handleError, { enableHighAccuracy: false, timeout: 15000, maximumAge: 0 });
-        },
-        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
-    );
-
-  }, [user.id, cart]); 
-
-  // 2. Load Products
   useEffect(() => {
     if (!activeStore) {
         setProducts([]);
         return;
     }
-    
     setIsProductLoading(true);
-    setProducts([]); 
-
-    const isMockStore = activeStore.id.startsWith('demo-') || activeStore.id.startsWith('local-') || activeStore.id.startsWith('osm-') || activeStore.id.startsWith('blr-');
-
-    if (isMockStore && activeStore.availableProductIds && activeStore.availableProductIds.length > 0) {
-        setTimeout(() => {
-            const storeHash = activeStore.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-            const priceMultiplier = 0.9 + (storeHash % 20) / 100;
-
-            const filteredProducts = INITIAL_PRODUCTS
-                .filter(p => activeStore.availableProductIds.includes(p.id))
-                .map(p => {
-                    const newPrice = Math.ceil(p.price * priceMultiplier);
-                    return {
-                        ...p,
-                        price: newPrice,
-                        brands: p.brands?.map(b => ({ ...b, price: Math.ceil(b.price * priceMultiplier) }))
-                    };
-                });
-            setProducts(filteredProducts);
-            setIsProductLoading(false);
-        }, 500);
-        return;
-    }
-
-    const loadProducts = async () => {
-        try {
-            const liveProducts = await getStoreProducts(activeStore.id);
-            // If live fetch returns empty, and we aren't a mock store, we just show empty.
-            // DO NOT FALLBACK to mock data for real stores.
-            setProducts(liveProducts);
-        } catch (e) {
-            console.error("Failed to load products", e);
-            setProducts([]);
-        } finally {
-            setIsProductLoading(false);
-        }
-    };
-    loadProducts();
+    fetchStoreProducts(activeStore.id).then(res => {
+        setProducts(res);
+        setIsProductLoading(false);
+    }).catch(() => setIsProductLoading(false));
   }, [activeStore]);
 
-  // 3. Cart Logic
   const addToCart = (product: Product, quantity = 1, brand?: string, price?: number, variant?: Variant) => {
-    if (!activeStore) { 
-        alert("Please select a store first (Location needed)"); 
-        return; 
-    }
-    
+    if (!activeStore) return;
     if (cart.length > 0 && cart[0].storeId !== activeStore.id) {
-        const confirmSwitch = window.confirm(
-            `Your cart contains items from ${cart[0].storeName}. \n\nDo you want to discard the selection and start a fresh cart from ${activeStore.name}?`
-        );
-        if (!confirmSwitch) return;
+        if (!window.confirm(`Clear cart from ${cart[0].storeName}?`)) return;
         setCart([]);
     }
-
     const selectedBrand = brand || 'Generic';
     const finalPrice = price || product.price;
     const variantSuffix = variant ? `-${variant.name.replace(/\s+/g, '')}` : '';
     const cartId = `${product.id}-${selectedBrand}${variantSuffix}-${activeStore.id}`;
-
     let itemName = product.name;
     if (brand && brand !== 'Generic') itemName = `${brand} ${itemName}`;
     if (variant) itemName = `${itemName} (${variant.name})`;
@@ -487,7 +278,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             storeType: activeStore.type
         }];
     });
-
     showToast(`Added ${itemName} to Cart`);
   };
 
@@ -498,23 +288,21 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const clearCart = () => setCart([]);
-
   const showToast = (message: string, action?: { label: string, onClick: () => void }) => {
       setToast({ show: true, message, action });
   };
   const hideToast = () => setToast({ ...toast, show: false });
-
   const toggleFavorite = (productId: string) => {
-      setFavorites(prev => {
-          if (prev.includes(productId)) {
-              showToast("Removed from Favorites");
-              return prev.filter(id => id !== productId);
-          }
-          showToast("Added to Favorites");
-          return [...prev, productId];
-      });
+      setFavorites(prev => prev.includes(productId) ? prev.filter(id => id !== productId) : [...prev, productId]);
   };
   const isFavorite = (productId: string) => favorites.includes(productId);
+  const resolveStoreSwitch = (accepted: boolean) => {
+      if (accepted && pendingStoreSwitch) {
+          setCart([]);
+          setActiveStore(pendingStoreSwitch);
+      }
+      setPendingStoreSwitch(null);
+  };
 
   return (
     <StoreContext.Provider value={{

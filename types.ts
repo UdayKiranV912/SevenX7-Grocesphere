@@ -1,25 +1,25 @@
 
 export interface BrandOption {
   name: string;
-  price: number; // Override base price
+  price: number; 
 }
 
 export interface Variant {
   name: string;
-  multiplier: number; // e.g., 1 for base, 0.5 for half, 5 for bulk
+  multiplier: number; 
 }
 
 export interface Product {
   id: string;
   name: string;
-  price: number; // Base price (or starting price)
+  price: number; 
   emoji: string;
   category: string;
   description?: string;
   ingredients?: string;
   nutrition?: string;
-  brands?: BrandOption[]; // List of available brands
-  variants?: Variant[]; // List of available sizes/types
+  brands?: BrandOption[]; 
+  variants?: Variant[]; 
 }
 
 export interface Store {
@@ -27,20 +27,21 @@ export interface Store {
   name: string;
   address: string;
   rating: number;
-  distance: string; // e.g., "0.8 km"
+  distance: string; 
   lat: number;
   lng: number;
   isOpen: boolean;
-  type: 'general' | 'produce' | 'dairy'; // 'general' = Red, 'produce' = Green, 'dairy' = Blue
-  availableProductIds: string[]; // List of product IDs available at this store
-  upiId?: string; // NEW: Store Owner UPI
+  type: 'general' | 'produce' | 'dairy'; 
+  store_type: 'grocery' | 'local_ecommerce'; // Added to support new schema
+  availableProductIds: string[]; 
+  upiId?: string; 
 }
 
 export interface CartItem extends Product {
   quantity: number;
-  selectedBrand: string;     // The specific brand chosen
-  selectedVariant?: Variant; // The specific variant chosen
-  originalProductId: string; // To link back to the main product for grouping
+  selectedBrand: string;     
+  selectedVariant?: Variant; 
+  originalProductId: string; 
   storeId: string;
   storeName: string;
   storeType: Store['type'];
@@ -48,12 +49,13 @@ export interface CartItem extends Product {
 
 export type OrderMode = 'DELIVERY' | 'PICKUP';
 export type DeliveryType = 'INSTANT' | 'SCHEDULED';
+export type OrderType = 'grocery' | 'local_ecommerce'; // Added
 
 export interface SavedCard {
   id: string;
   type: 'VISA' | 'MASTERCARD' | 'UPI';
-  last4?: string; // For cards
-  upiId?: string; // For UPI
+  last4?: string; 
+  upiId?: string; 
   label: string;
 }
 
@@ -75,13 +77,12 @@ export interface LocationResult {
   longitude: number;
 }
 
-// NEW: Payment Split Interface
 export interface PaymentSplit {
   storeAmount: number;
   storeUpi?: string;
-  handlingFee?: number; // Optional now
+  handlingFee?: number; 
   adminUpi?: string;
-  deliveryFee: number; // If 0, free for customer. If > 0, pay to driver.
+  deliveryFee: number; 
   driverUpi?: string;
 }
 
@@ -92,16 +93,15 @@ export interface Order {
   total: number;
   status: 'Pending' | 'Preparing' | 'On the way' | 'Ready' | 'Delivered' | 'Picked Up' | 'Cancelled';
   paymentStatus: 'PAID' | 'PENDING';
-  paymentDeadline?: string; // For scheduled orders: 30 mins before slot
-  paymentMethod?: string; // NEW: To show "UPI", "Card", etc.
+  paymentDeadline?: string; 
+  paymentMethod?: string; 
   mode: OrderMode;
   deliveryType: DeliveryType;
+  order_type: OrderType; // Added
   scheduledTime?: string;
   deliveryAddress?: string;
   storeName: string;
   storeLocation?: { lat: number; lng: number };
   userLocation?: { lat: number; lng: number };
-  
-  // NEW: Split details
   splits?: PaymentSplit;
 }

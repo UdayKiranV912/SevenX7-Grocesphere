@@ -19,7 +19,6 @@ export const ShopPage: React.FC = () => {
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
-  // --- Modal History & Context Handling ---
   useEffect(() => {
     if (selectedProduct) {
         setViewingProduct(selectedProduct);
@@ -33,7 +32,7 @@ export const ShopPage: React.FC = () => {
     } else {
         setViewingProduct(null);
     }
-  }, [selectedProduct]);
+  }, [selectedProduct, setViewingProduct]);
 
   const closeProductModal = () => {
       setSelectedProduct(null);
@@ -43,7 +42,6 @@ export const ShopPage: React.FC = () => {
       }
   };
 
-  // --- NO STORES FOUND STATE (REAL USER) ---
   if (!activeStore && availableStores.length === 0 && !isProductLoading) {
       return (
           <div className="flex flex-col items-center justify-center min-h-[70vh] px-8 text-center animate-fade-in">
@@ -79,12 +77,10 @@ export const ShopPage: React.FC = () => {
     return matchesSearch && matchesFamily && matchesFav;
   });
 
-  const getStoreTypeLabel = (type?: string) => {
-      switch(type) {
-          case 'produce': return 'Farm Fresh Produce';
-          case 'dairy': return 'Dairy Parlour';
-          default: return 'General Store';
-      }
+  const getStoreTypeLabel = (type?: string, storeType?: string) => {
+      const base = type === 'produce' ? 'Farm Fresh' : type === 'dairy' ? 'Dairy Parlour' : 'General Store';
+      const mode = storeType === 'local_ecommerce' ? 'E-Commerce' : 'Grocery';
+      return `${base} • ${mode}`;
   };
 
   const renderProductView = () => {
@@ -96,10 +92,6 @@ export const ShopPage: React.FC = () => {
                         <div className="w-full aspect-square bg-slate-100 rounded-2xl mb-3"></div>
                         <div className="h-3 w-3/4 bg-slate-100 rounded mb-2"></div>
                         <div className="h-2 w-1/2 bg-slate-100 rounded mb-4"></div>
-                        <div className="flex justify-between items-end">
-                             <div className="h-4 w-12 bg-slate-100 rounded"></div>
-                             <div className="h-8 w-8 bg-slate-100 rounded-xl"></div>
-                        </div>
                     </div>
                 ))}
             </div>
@@ -107,38 +99,11 @@ export const ShopPage: React.FC = () => {
     }
 
     if (filteredProducts.length === 0) {
-        let emptyMessage = "No items found.";
-        let subMessage = "Try checking another store!";
-
-        if (showFavoritesOnly) {
-            subMessage = "You haven't liked any items yet.";
-        } else if (activeStore?.type === 'dairy' && selectedFamilyId !== 'dairy') {
-            emptyMessage = "No items in this category.";
-            subMessage = `${activeStore.name} specializes in Dairy. Try a General Store for other items.`;
-        } else if (activeStore?.type === 'produce' && selectedFamilyId !== 'produce') {
-            emptyMessage = "No items in this category.";
-            subMessage = `${activeStore.name} specializes in Fresh Produce. Try a General Store for other items.`;
-        } else if (searchTerm) {
-            emptyMessage = `No results for "${searchTerm}"`;
-            subMessage = `Not available at ${activeStore?.name}.`;
-        }
-
         return (
             <div className="flex flex-col items-center justify-center py-10 opacity-70 text-center px-6">
                 <span className="text-4xl mb-3 bg-slate-100 p-4 rounded-full">🔍</span>
-                <p className="text-sm font-bold text-slate-800">{emptyMessage}</p>
-                <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">{subMessage}</p>
-                {(activeStore?.type === 'dairy' || activeStore?.type === 'produce') && !showFavoritesOnly && (
-                    <button 
-                       onClick={() => {
-                           const generalStore = availableStores.find(s => s.type === 'general');
-                           if (generalStore) setActiveStore(generalStore);
-                       }}
-                       className="mt-4 text-xs font-bold text-brand-DEFAULT underline decoration-dashed underline-offset-4"
-                    >
-                        Switch to General Store
-                    </button>
-                )}
+                <p className="text-sm font-bold text-slate-800">No items found.</p>
+                <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">Try checking another store!</p>
             </div>
         );
     }
@@ -163,7 +128,6 @@ export const ShopPage: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-fade-in pt-4">
-      {/* Search and Filters */}
       <div className="flex gap-2">
           <input 
               type="text" 
@@ -181,7 +145,6 @@ export const ShopPage: React.FC = () => {
           </button>
       </div>
       
-      {/* Map & Store Header */}
       <div className="rounded-[2rem] overflow-hidden border border-white shadow-card relative group bg-white">
            <div className="h-40 relative">
                 <MapVisualizer 
@@ -208,12 +171,12 @@ export const ShopPage: React.FC = () => {
                        <div>
                            <div className="flex items-center gap-2">
                                <h2 className="font-black text-slate-800 text-sm">{activeStore.name}</h2>
-                               {activeStore.id.startsWith('blr-') && (
-                                   <span className="text-[8px] font-black bg-slate-900 text-white px-1.5 py-0.5 rounded">BLR</span>
-                               )}
+                               <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase ${activeStore.store_type === 'local_ecommerce' ? 'bg-purple-900 text-white' : 'bg-slate-900 text-white'}`}>
+                                   {activeStore.store_type === 'local_ecommerce' ? 'E-Comm' : 'Grocery'}
+                               </span>
                            </div>
                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
-                               {getStoreTypeLabel(activeStore.type)} • {activeStore.distance}
+                               {getStoreTypeLabel(activeStore.type, activeStore.store_type)} • {activeStore.distance}
                            </p>
                        </div>
                    </div>
@@ -224,13 +187,9 @@ export const ShopPage: React.FC = () => {
            )}
       </div>
 
-      {/* TRACK ORDER FLOATING WIDGET */}
       {activeOrder && (
           <div 
-             onClick={() => {
-                window.history.pushState({ view: 'ORDERS' }, '');
-                setCurrentView('ORDERS');
-             }}
+             onClick={() => setCurrentView('ORDERS')}
              className="bg-slate-900 text-white p-4 rounded-2xl shadow-float flex items-center justify-between cursor-pointer animate-slide-up hover:scale-[1.02] transition-transform mx-1"
           >
              <div className="flex items-center gap-3">
@@ -239,18 +198,15 @@ export const ShopPage: React.FC = () => {
                  </div>
                  <div>
                      <p className="text-[10px] font-bold text-brand-DEFAULT uppercase tracking-wider mb-0.5">Track Your Order</p>
-                     <p className="text-sm font-black">{activeOrder.status === 'On the way' ? 'Driver is on the way' : activeOrder.status}</p>
+                     <p className="text-sm font-black">{activeOrder.status}</p>
                  </div>
              </div>
              <div className="text-right">
-                 <span className="text-xs font-bold text-white bg-white/10 px-2 py-1 rounded-lg">
-                    {activeOrder.status === 'On the way' ? 'Arriving Soon' : 'View Status'} →
-                 </span>
+                 <span className="text-xs font-bold text-white bg-white/10 px-2 py-1 rounded-lg">View →</span>
              </div>
           </div>
       )}
 
-      {/* Families */}
       {activeStore && !searchTerm && !showFavoritesOnly && !isProductLoading && (
         <div className="grid grid-cols-4 gap-2">
         {PRODUCT_FAMILIES.filter(f => isFamilyAvailable(f.id)).map((family) => {
@@ -269,21 +225,15 @@ export const ShopPage: React.FC = () => {
         </div>
       )}
 
-      {/* Products */}
       <div className="pb-10">
           <div className="flex items-center justify-between mb-4 px-1">
                 <div className="flex flex-col">
                     <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
                         {showFavoritesOnly ? 'Your Favorites' : (searchTerm ? 'Search Results' : 'Fresh Picks')}
-                        {!isProductLoading && !showFavoritesOnly && (
-                             <span className="text-[10px] font-bold bg-brand-light text-brand-dark px-2 py-0.5 rounded-full uppercase tracking-wider">
-                                Live
-                             </span>
-                        )}
                     </h2>
                     {activeStore && (
-                        <span className="text-[10px] text-slate-400 font-medium">
-                            {activeStore.type !== 'general' ? `Specialized pricing from ${activeStore.name}` : `Best local prices from ${activeStore.name}`}
+                        <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">
+                            {activeStore.store_type === 'grocery' ? 'Direct from Mart' : 'Local Business Partner'}
                         </span>
                     )}
                 </div>

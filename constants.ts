@@ -249,44 +249,45 @@ export const GENERAL_IDS = [
 ];
 
 // Comprehensive Bengaluru Stores List for DEMO MODE
+// Fix: Added missing required 'store_type' property to all MOCK_STORES entries.
 export const MOCK_STORES: Store[] = [
   // --- Indiranagar (East) ---
-  { id: 'blr-ind-1', name: "Nandini Milk Parlour", address: "CMH Road, Indiranagar", rating: 4.8, distance: "0.2 km", lat: 12.9784, lng: 77.6408, isOpen: true, type: 'dairy', availableProductIds: DAIRY_IDS, upiId: 'nandini.ind@okaxis' },
-  { id: 'blr-ind-2', name: "MK Ahmed Bazaar", address: "12th Main, Indiranagar", rating: 4.5, distance: "0.5 km", lat: 12.9700, lng: 77.6380, isOpen: true, type: 'general', availableProductIds: GENERAL_IDS, upiId: 'mkahmed@okhdfc' },
-  { id: 'blr-ind-3', name: "Hopcoms Fresh", address: "Double Road, Indiranagar", rating: 4.6, distance: "0.8 km", lat: 12.9750, lng: 77.6400, isOpen: true, type: 'produce', availableProductIds: PRODUCE_IDS, upiId: 'hopcoms@okicici' },
+  { id: 'blr-ind-1', name: "Nandini Milk Parlour", address: "CMH Road, Indiranagar", rating: 4.8, distance: "0.2 km", lat: 12.9784, lng: 77.6408, isOpen: true, type: 'dairy', store_type: 'grocery', availableProductIds: DAIRY_IDS, upiId: 'nandini.ind@okaxis' },
+  { id: 'blr-ind-2', name: "MK Ahmed Bazaar", address: "12th Main, Indiranagar", rating: 4.5, distance: "0.5 km", lat: 12.9700, lng: 77.6380, isOpen: true, type: 'general', store_type: 'grocery', availableProductIds: GENERAL_IDS, upiId: 'mkahmed@okhdfc' },
+  { id: 'blr-ind-3', name: "Hopcoms Fresh", address: "Double Road, Indiranagar", rating: 4.6, distance: "0.8 km", lat: 12.9750, lng: 77.6400, isOpen: true, type: 'produce', store_type: 'grocery', availableProductIds: PRODUCE_IDS, upiId: 'hopcoms@okicici' },
 
   // --- Koramangala (Southeast) ---
-  { id: 'blr-korm-1', name: "Organic World", address: "6th Block, Koramangala", rating: 4.7, distance: "1.2 km", lat: 12.9345, lng: 77.6268, isOpen: true, type: 'produce', availableProductIds: PRODUCE_IDS, upiId: 'organicworld@oksbi' },
-  { id: 'blr-korm-2', name: "Koramangala Mart", address: "80ft Road, Koramangala", rating: 4.3, distance: "1.5 km", lat: 12.9350, lng: 77.6130, isOpen: true, type: 'general', availableProductIds: GENERAL_IDS, upiId: 'kmart@okicici' },
+  { id: 'blr-korm-1', name: "Organic World", address: "6th Block, Koramangala", rating: 4.7, distance: "1.2 km", lat: 12.9345, lng: 77.6268, isOpen: true, type: 'produce', store_type: 'grocery', availableProductIds: PRODUCE_IDS, upiId: 'organicworld@oksbi' },
+  { id: 'blr-korm-2', name: "Koramangala Mart", address: "80ft Road, Koramangala", rating: 4.3, distance: "1.5 km", lat: 12.9350, lng: 77.6130, isOpen: true, type: 'general', store_type: 'grocery', availableProductIds: GENERAL_IDS, upiId: 'kmart@okicici' },
   
   // --- HSR Layout (Southeast) ---
-  { id: 'blr-hsr-1', name: "HSR Super Bazaar", address: "Sector 2, HSR Layout", rating: 4.4, distance: "2.1 km", lat: 12.9141, lng: 77.6412, isOpen: true, type: 'general', availableProductIds: GENERAL_IDS, upiId: 'hsrsuper@okhdfc' },
-  { id: 'blr-hsr-2', name: "Daily Dairy HSR", address: "Sector 1, HSR Layout", rating: 4.6, distance: "2.3 km", lat: 12.9081, lng: 77.6476, isOpen: true, type: 'dairy', availableProductIds: DAIRY_IDS, upiId: 'hsrdairy@okaxis' },
+  { id: 'blr-hsr-1', name: "HSR Super Bazaar", address: "Sector 2, HSR Layout", rating: 4.4, distance: "2.1 km", lat: 12.9141, lng: 77.6412, isOpen: true, type: 'general', store_type: 'grocery', availableProductIds: GENERAL_IDS, upiId: 'hsrsuper@okhdfc' },
+  { id: 'blr-hsr-2', name: "Daily Dairy HSR", address: "Sector 1, HSR Layout", rating: 4.6, distance: "2.3 km", lat: 12.9081, lng: 77.6476, isOpen: true, type: 'dairy', store_type: 'grocery', availableProductIds: DAIRY_IDS, upiId: 'hsrdairy@okaxis' },
 
   // --- Jayanagar (South) ---
-  { id: 'blr-jay-1', name: "Jayanagar Complex Store", address: "4th Block, Jayanagar", rating: 4.5, distance: "3.5 km", lat: 12.9250, lng: 77.5840, isOpen: true, type: 'general', availableProductIds: GENERAL_IDS, upiId: 'jaycomplex@oksbi' },
-  { id: 'blr-jay-2', name: "Green Farm Jayanagar", address: "9th Main, Jayanagar", rating: 4.8, distance: "3.8 km", lat: 12.9280, lng: 77.5800, isOpen: true, type: 'produce', availableProductIds: PRODUCE_IDS, upiId: 'greenfarm@okicici' },
+  { id: 'blr-jay-1', name: "Jayanagar Complex Store", address: "4th Block, Jayanagar", rating: 4.5, distance: "3.5 km", lat: 12.9250, lng: 77.5840, isOpen: true, type: 'general', store_type: 'grocery', availableProductIds: GENERAL_IDS, upiId: 'jaycomplex@oksbi' },
+  { id: 'blr-jay-2', name: "Green Farm Jayanagar", address: "9th Main, Jayanagar", rating: 4.8, distance: "3.8 km", lat: 12.9280, lng: 77.5800, isOpen: true, type: 'produce', store_type: 'grocery', availableProductIds: PRODUCE_IDS, upiId: 'greenfarm@okicici' },
 
   // --- JP Nagar (South) ---
-  { id: 'blr-jp-1', name: "JP Nagar Provisions", address: "2nd Phase, JP Nagar", rating: 4.2, distance: "4.2 km", lat: 12.9063, lng: 77.5895, isOpen: true, type: 'general', availableProductIds: GENERAL_IDS, upiId: 'jpprovisions@okhdfc' },
+  { id: 'blr-jp-1', name: "JP Nagar Provisions", address: "2nd Phase, JP Nagar", rating: 4.2, distance: "4.2 km", lat: 12.9063, lng: 77.5895, isOpen: true, type: 'general', store_type: 'grocery', availableProductIds: GENERAL_IDS, upiId: 'jpprovisions@okhdfc' },
 
   // --- Malleshwaram (North West) ---
-  { id: 'blr-mal-1', name: "Sampige Road Stores", address: "Sampige Road, Malleshwaram", rating: 4.7, distance: "6.5 km", lat: 13.0055, lng: 77.5692, isOpen: true, type: 'general', availableProductIds: GENERAL_IDS, upiId: 'sampige@okaxis' },
-  { id: 'blr-mal-2', name: "CTR Coffee & Condiments", address: "7th Cross, Malleshwaram", rating: 4.9, distance: "6.7 km", lat: 12.9980, lng: 77.5700, isOpen: true, type: 'general', availableProductIds: GENERAL_IDS, upiId: 'ctr@oksbi' },
+  { id: 'blr-mal-1', name: "Sampige Road Stores", address: "Sampige Road, Malleshwaram", rating: 4.7, distance: "6.5 km", lat: 13.0055, lng: 77.5692, isOpen: true, type: 'general', store_type: 'grocery', availableProductIds: GENERAL_IDS, upiId: 'sampige@okaxis' },
+  { id: 'blr-mal-2', name: "CTR Coffee & Condiments", address: "7th Cross, Malleshwaram", rating: 4.9, distance: "6.7 km", lat: 12.9980, lng: 77.5700, isOpen: true, type: 'general', store_type: 'grocery', availableProductIds: GENERAL_IDS, upiId: 'ctr@oksbi' },
 
   // --- Whitefield (East) ---
-  { id: 'blr-wfd-1', name: "Whitefield Main Market", address: "Whitefield Main Rd", rating: 4.3, distance: "12.0 km", lat: 12.9698, lng: 77.7500, isOpen: true, type: 'general', availableProductIds: GENERAL_IDS, upiId: 'wfdmarket@okicici' },
-  { id: 'blr-wfd-2', name: "ITPL Fresh", address: "Near ITPL, Whitefield", rating: 4.5, distance: "12.5 km", lat: 12.9847, lng: 77.7300, isOpen: true, type: 'produce', availableProductIds: PRODUCE_IDS, upiId: 'itplfresh@okhdfc' },
+  { id: 'blr-wfd-1', name: "Whitefield Main Market", address: "Whitefield Main Rd", rating: 4.3, distance: "12.0 km", lat: 12.9698, lng: 77.7500, isOpen: true, type: 'general', store_type: 'local_ecommerce', availableProductIds: GENERAL_IDS, upiId: 'wfdmarket@okicici' },
+  { id: 'blr-wfd-2', name: "ITPL Fresh", address: "Near ITPL, Whitefield", rating: 4.5, distance: "12.5 km", lat: 12.9847, lng: 77.7300, isOpen: true, type: 'produce', store_type: 'grocery', availableProductIds: PRODUCE_IDS, upiId: 'itplfresh@okhdfc' },
 
   // --- Electronic City (Far South) ---
-  { id: 'blr-ecity-1', name: "E-City Hyperlocal", address: "Neeladri Road, E-City", rating: 4.4, distance: "15.0 km", lat: 12.8452, lng: 77.6602, isOpen: true, type: 'general', availableProductIds: GENERAL_IDS, upiId: 'ecity@okaxis' },
+  { id: 'blr-ecity-1', name: "E-City Hyperlocal", address: "Neeladri Road, E-City", rating: 4.4, distance: "15.0 km", lat: 12.8452, lng: 77.6602, isOpen: true, type: 'general', store_type: 'local_ecommerce', availableProductIds: GENERAL_IDS, upiId: 'ecity@okaxis' },
 
   // --- Basavanagudi (Central South) ---
-  { id: 'blr-bas-1', name: "Gandhi Bazaar Greens", address: "Gandhi Bazaar Main Rd", rating: 4.9, distance: "4.0 km", lat: 12.9440, lng: 77.5720, isOpen: true, type: 'produce', availableProductIds: PRODUCE_IDS, upiId: 'gandhibazaar@oksbi' },
+  { id: 'blr-bas-1', name: "Gandhi Bazaar Greens", address: "Gandhi Bazaar Main Rd", rating: 4.9, distance: "4.0 km", lat: 12.9440, lng: 77.5720, isOpen: true, type: 'produce', store_type: 'grocery', availableProductIds: PRODUCE_IDS, upiId: 'gandhibazaar@oksbi' },
 
   // --- Frazer Town (Central North) ---
-  { id: 'blr-frz-1', name: "Thomson's Bakery & Mart", address: "Wheeler Road, Frazer Town", rating: 4.8, distance: "3.2 km", lat: 12.9960, lng: 77.6130, isOpen: true, type: 'general', availableProductIds: GENERAL_IDS, upiId: 'thomsons@okicici' },
+  { id: 'blr-frz-1', name: "Thomson's Bakery & Mart", address: "Wheeler Road, Frazer Town", rating: 4.8, distance: "3.2 km", lat: 12.9960, lng: 77.6130, isOpen: true, type: 'general', store_type: 'grocery', availableProductIds: GENERAL_IDS, upiId: 'thomsons@okicici' },
 
   // --- Shivajinagar (Central) ---
-  { id: 'blr-shv-1', name: "Russell Market Fresh", address: "Shivajinagar", rating: 4.5, distance: "2.8 km", lat: 12.9856, lng: 77.6057, isOpen: true, type: 'produce', availableProductIds: PRODUCE_IDS, upiId: 'russell@okhdfc' }
+  { id: 'blr-shv-1', name: "Russell Market Fresh", address: "Shivajinagar", rating: 4.5, distance: "2.8 km", lat: 12.9856, lng: 77.6057, isOpen: true, type: 'produce', store_type: 'grocery', availableProductIds: PRODUCE_IDS, upiId: 'russell@okhdfc' }
 ];

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { StoreProvider, useStore } from './contexts/StoreContext';
-import { Order, DeliveryType, UserState } from './types';
+import { Order, DeliveryType, UserState, OrderType } from './types';
 import { Auth } from './components/OTPVerification';
 import { CartSheet } from './components/CartSheet';
 import { PaymentGateway } from './components/PaymentGateway';
@@ -199,6 +199,7 @@ const AppContent: React.FC = () => {
         const sourceStore = availableStores.find(s => s.id === storeId) || (activeStore?.id === storeId ? activeStore : null);
         const storeLoc = sourceStore ? { lat: sourceStore.lat, lng: sourceStore.lng } : { lat: 0, lng: 0 };
 
+        // Fix: Added missing required 'order_type' property to Order object.
         return {
             id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
             date: new Date().toISOString(),
@@ -209,6 +210,7 @@ const AppContent: React.FC = () => {
             paymentMethod: details.isPayLater ? 'Pay Later' : paymentMethodString,
             mode: orderMode,
             deliveryType: details.deliveryType,
+            order_type: (sourceStore?.store_type || activeStore?.store_type || 'grocery') as OrderType,
             scheduledTime: details.scheduledTime,
             deliveryAddress: orderMode === 'DELIVERY' ? deliveryAddress : undefined,
             storeName: storeItem.storeName,

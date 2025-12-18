@@ -74,12 +74,15 @@ export const MyOrders: React.FC<MyOrdersProps> = ({ userLocation, onPayNow }) =>
         if (isCancelled) badgeColor = 'bg-red-100 text-red-700';
         if (order.status === 'Pending') badgeColor = 'bg-yellow-100 text-yellow-700';
 
+        // Fix: Added missing required 'store_type' property to temporary mapStore object.
         const mapStore: Store = {
             id: `order-store-${order.id}`,
             name: order.storeName || 'Store',
             lat: order.storeLocation?.lat || 0,
             lng: order.storeLocation?.lng || 0,
-            address: '', rating: 0, distance: '', isOpen: true, type: 'general', availableProductIds: []
+            address: '', rating: 0, distance: '', isOpen: true, type: 'general', 
+            store_type: order.order_type || 'grocery',
+            availableProductIds: [] as string[]
         };
         
         const etaText = getExpectedTime(order.date, order.status);
