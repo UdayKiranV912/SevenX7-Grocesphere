@@ -21,10 +21,13 @@ const SevenX7Logo: React.FC<SevenX7LogoProps> = ({ size = 'small', isWelcome = f
 
   const isLarge = size === 'large';
   const textSizeClass = getTextSize();
-  const gapClass = isLarge ? 'gap-3' : size === 'medium' ? 'gap-2.5' : 'gap-1.5';
+  
+  // Minimal gaps to make it look like one word
+  const gapClass = 'gap-0.5';
   
   const xSize = isLarge ? 'text-6xl' : size === 'medium' ? 'text-3xl' : size === 'xs' ? 'text-sm' : 'text-xl';
-  const trackingClass = size === 'xs' ? 'tracking-[0.15em]' : isLarge ? 'tracking-[0.2em]' : 'tracking-[0.3em]';
+  // Tight tracking for "one word" feel
+  const trackingClass = 'tracking-tight';
 
   return (
     <div className={`group flex items-center font-display ${gapClass} select-none`}>
@@ -36,8 +39,8 @@ const SevenX7Logo: React.FC<SevenX7LogoProps> = ({ size = 'small', isWelcome = f
         Seven
       </span>
 
-      {/* X - Black, extra bold (font-black), no animations */}
-      <div className={`relative flex items-center justify-center ${xSize}`} onClick={onNewsClick}>
+      {/* X - Black, extra bold (font-black) */}
+      <div className={`relative flex items-center justify-center ${xSize} leading-none`} onClick={onNewsClick}>
          <span 
             className="relative z-10 text-black font-black inline-block origin-center" 
             style={{ fontFamily: 'sans-serif', fontWeight: 900 }}

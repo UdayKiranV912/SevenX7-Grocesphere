@@ -51,12 +51,11 @@ const AppContent: React.FC = () => {
   // Handle Store Switch Prompt via Toast
   useEffect(() => {
     if (pendingStoreSwitch) {
-        // Check if switching requires clearing cart
         const cartHasItemsFromOtherStore = cart.length > 0 && cart[0].storeId !== pendingStoreSwitch.id;
         
         const message = cartHasItemsFromOtherStore 
-            ? `You are closer to ${pendingStoreSwitch.name}. Switch? (Cart will be cleared)`
-            : `You are closer to ${pendingStoreSwitch.name}. Switch store?`;
+            ? `Closer to ${pendingStoreSwitch.name}. Switch? (Clears Cart)`
+            : `Closer to ${pendingStoreSwitch.name}. Switch?`;
 
         showToast(
             message,
@@ -71,20 +70,15 @@ const AppContent: React.FC = () => {
   // Real-time location watching
   useEffect(() => {
     if (user.isAuthenticated && navigator.geolocation) {
-        // Trigger initial detection
         detectLocation();
-        
         watchIdRef.current = navigator.geolocation.watchPosition(
             (position) => {
                 const { latitude, longitude } = position.coords;
-                // Only update if moved significantly to prevent re-renders (> 20 meters)
                 setUser(prev => {
                     if (!prev.location) return { ...prev, location: { lat: latitude, lng: longitude } };
-                    
                     const latDiff = Math.abs(prev.location.lat - latitude);
                     const lngDiff = Math.abs(prev.location.lng - longitude);
-                    
-                    if (latDiff > 0.0002 || lngDiff > 0.0002) { // Approx 20m
+                    if (latDiff > 0.0002 || lngDiff > 0.0002) { 
                         return { ...prev, location: { lat: latitude, lng: longitude } };
                     }
                     return prev;
@@ -99,25 +93,21 @@ const AppContent: React.FC = () => {
     };
   }, [user.isAuthenticated]);
 
-  // --- NATIVE NAVIGATION HANDLER ---
   useEffect(() => {
     if (user.isAuthenticated && !window.history.state) {
        window.history.replaceState({ view: 'SHOP' }, '');
     }
-
     const handlePopState = (event: PopStateEvent) => {
        if (showPaymentGateway) {
            setShowPaymentGateway(false);
            return;
        }
-
        if (event.state && event.state.view) {
            setCurrentView(event.state.view);
        } else {
            setCurrentView('SHOP');
        }
     };
-
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, [user.isAuthenticated, showPaymentGateway, setCurrentView]);
@@ -174,7 +164,6 @@ const AppContent: React.FC = () => {
   const finalizeOrder = async (paymentMethodString: string, directDetails?: typeof pendingOrderDetails) => {
     const details = directDetails || pendingOrderDetails;
     if (!details) return;
-
     if (details.existingOrderId) {
         if (showPaymentGateway) window.history.back();
         setShowPaymentGateway(false);
@@ -182,24 +171,19 @@ const AppContent: React.FC = () => {
         navigateTo('ORDERS');
         return;
     }
-
     const itemsByStore: Record<string, typeof cart> = {};
     cart.forEach(item => {
         if (!itemsByStore[item.storeId]) itemsByStore[item.storeId] = [];
         itemsByStore[item.storeId].push(item);
     });
-
     const newOrders: Order[] = Object.entries(itemsByStore).map(([storeId, items]) => {
         const storeItem = items[0];
         const subTotal = items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
         const deliveryFee = details.splits?.deliveryFee || 0;
         const handlingFee = details.splits?.handlingFee || 0;
         const total = subTotal + deliveryFee + handlingFee;
-
         const sourceStore = availableStores.find(s => s.id === storeId) || (activeStore?.id === storeId ? activeStore : null);
         const storeLoc = sourceStore ? { lat: sourceStore.lat, lng: sourceStore.lng } : { lat: 0, lng: 0 };
-
-        // Fix: Added missing required 'order_type' property to Order object.
         return {
             id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
             date: new Date().toISOString(),
@@ -219,10 +203,7 @@ const AppContent: React.FC = () => {
             splits: details.splits
         };
     });
-
-    // Use Context addOrder for immediate state update + persistence
     await Promise.all(newOrders.map(order => addOrder(order)));
-
     clearCart();
     if (showPaymentGateway) window.history.back();
     setShowPaymentGateway(false);
@@ -241,50 +222,33 @@ const AppContent: React.FC = () => {
       
       <Toast message={toast.message} isVisible={toast.show} onClose={hideToast} action={toast.action} />
 
-      {/* HEADER: Hidden on Profile Page */}
       {currentView !== 'PROFILE' && (
         <header className={`sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-slate-200/50 shadow-sm transition-all duration-300 ${currentView !== 'SHOP' ? 'hidden md:block' : ''}`}>
-          <div className="max-w-md mx-auto px-4 py-3 flex items-start justify-between">
-              <div className="flex flex-col items-start gap-1">
+          <div className="max-w-md mx-auto px-4 py-2 flex items-center justify-between">
+              <div className="flex flex-col items-start">
                   <div className="flex flex-col items-start">
-                     <h1 className="text-2xl font-black text-slate-900 tracking-tight leading-none">Grocesphere</h1>
-                     <div className="mt-1 flex justify-start">
+                     <h1 className="text-xl font-black text-slate-900 tracking-tight leading-none">Grocesphere</h1>
+                     <div className="mt-0.5 flex justify-start">
                        <SevenX7Logo size="xs" />
                      </div>
                   </div>
 
-                  {activeStore ? (
-                      <div className="flex items-center gap-2 bg-slate-100 rounded-full pl-1 pr-3 py-1 mt-2 cursor-default select-none animate-fade-in">
-                          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs text-white shadow-sm transition-colors ${
-                              activeStore?.type === 'produce' ? 'bg-emerald-500' : 
-                              activeStore?.type === 'dairy' ? 'bg-blue-500' : 'bg-orange-500'
-                          }`}>
-                              {activeStore?.type === 'produce' ? '🥦' : activeStore?.type === 'dairy' ? '🥛' : '🏪'}
-                          </div>
-                          <div className="flex flex-col items-start">
-                              <span className="text-[9px] font-bold text-slate-400 uppercase leading-none mb-0.5">Shopping At</span>
-                              <span className="text-xs font-bold text-slate-800 leading-none truncate max-w-[120px]">
-                                  {activeStore.name}
-                              </span>
-                          </div>
+                  <div className="flex items-center gap-2 mt-1.5" onClick={detectLocation}>
+                      <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] text-white shadow-sm ${
+                          activeStore?.type === 'produce' ? 'bg-emerald-500' : 
+                          activeStore?.type === 'dairy' ? 'bg-blue-500' : 'bg-orange-500'
+                      }`}>
+                          {activeStore?.type === 'produce' ? '🥦' : activeStore?.type === 'dairy' ? '🥛' : '🏪'}
                       </div>
-                  ) : (
-                      <div className="mt-2 text-xs font-bold text-slate-500 animate-pulse bg-slate-100 px-2 py-1 rounded-lg">
-                          {isLoading ? 'Locating stores nearby...' : 'No Service Area'}
-                      </div>
-                  )}
-                  
-                  <div className="flex items-center gap-1 mt-1 max-w-[200px]" onClick={detectLocation}>
-                      <span className="text-brand-DEFAULT text-xs">📍</span>
-                      <span className="text-[10px] font-bold text-slate-500 truncate cursor-pointer hover:text-brand-dark transition-colors">
-                          {user.address || 'Locating...'}
+                      <span className="text-[10px] font-bold text-slate-500 truncate max-w-[140px] cursor-pointer hover:text-brand-dark transition-colors">
+                          {activeStore ? activeStore.name : (user.address || 'Locating...')}
                       </span>
                   </div>
               </div>
 
               <button 
                 onClick={() => navigateTo('PROFILE')}
-                className="w-10 h-10 rounded-full bg-slate-100 border-2 border-white shadow-sm flex items-center justify-center text-lg hover:bg-slate-200 transition-colors active:scale-90 mt-1"
+                className="w-9 h-9 rounded-full bg-slate-100 border-2 border-white shadow-sm flex items-center justify-center text-base hover:bg-slate-200 transition-colors active:scale-90"
               >
                 {user.name ? user.name.charAt(0).toUpperCase() : '👤'}
               </button>
@@ -292,19 +256,10 @@ const AppContent: React.FC = () => {
         </header>
       )}
 
-      <main className={`max-w-md mx-auto relative min-h-[calc(100vh-50px)] ${currentView === 'PROFILE' ? 'bg-[#F8FAFC]' : ''}`}>
-        {currentView === 'SHOP' && (
-             <ShopPage />
-        )}
-        
-        {currentView === 'ORDERS' && (
-            <OrdersPage onPayNow={handlePayForExistingOrder} />
-        )}
-
-        {currentView === 'PROFILE' && (
-            <ProfilePage onBack={() => navigateTo('SHOP')} />
-        )}
-
+      <main className={`max-w-md mx-auto relative ${currentView === 'PROFILE' ? 'bg-[#F8FAFC]' : ''}`}>
+        {currentView === 'SHOP' && <ShopPage />}
+        {currentView === 'ORDERS' && <OrdersPage onPayNow={handlePayForExistingOrder} />}
+        {currentView === 'PROFILE' && <ProfilePage onBack={() => navigateTo('SHOP')} />}
         {currentView === 'CART' && (
            <CartSheet 
               cart={cart}
@@ -357,16 +312,14 @@ const AppContent: React.FC = () => {
               activeStore={activeStore}
               stores={availableStores}
               userLocation={user.location}
-              // Hide button if payment is active OR if product modal is open
               hideButton={showPaymentGateway || !!viewingProduct}
            />
         )}
       </main>
 
-      {/* BOTTOM NAV: Hidden on Profile Page */}
       {currentView !== 'PROFILE' && (
-        <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-slate-200/60 pb-safe z-50 shadow-[0_-5px_20px_rgba(0,0,0,0.03)]">
-           <div className="max-w-md mx-auto flex justify-between items-center px-6 py-0.5">
+        <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-slate-200/60 pb-safe z-50 shadow-soft">
+           <div className="max-w-md mx-auto flex justify-between items-center px-8 py-1">
             {[
               { id: 'SHOP', icon: '🏠', label: 'Home' },
               { id: 'CART', icon: '🛒', label: 'Cart', badge: totalCartItems },
@@ -377,33 +330,28 @@ const AppContent: React.FC = () => {
                   <button 
                       key={item.id}
                       onClick={() => navigateTo(item.id as any)}
-                      className={`flex flex-col items-center justify-center w-16 h-10 transition-all duration-200 active:scale-95 ${isActive ? 'text-slate-900' : 'text-slate-400 hover:text-slate-600'}`}
+                      className={`flex flex-col items-center justify-center w-16 h-10 transition-all duration-200 active:scale-95 ${isActive ? 'text-slate-900' : 'text-slate-400'}`}
                   >
                       <div className="relative">
-                          <span className={`text-lg mb-0.5 block transition-transform ${isActive ? 'scale-110 -translate-y-0.5' : ''}`}>
+                          <span className={`text-lg mb-0.5 block ${isActive ? 'scale-110 -translate-y-0.5' : ''}`}>
                               {item.icon}
                           </span>
                           {item.badge ? (
-                              <span className="absolute -top-1 -right-2 min-w-[14px] h-[14px] bg-brand-DEFAULT text-white text-[8px] font-black flex items-center justify-center rounded-full border-2 border-white shadow-sm">
+                              <span className="absolute -top-1 -right-2 min-w-[14px] h-[14px] bg-brand-DEFAULT text-white text-[8px] font-black flex items-center justify-center rounded-full border-2 border-white">
                                   {item.badge}
                               </span>
                           ) : null}
                       </div>
-                      <span className={`text-[8px] font-bold ${isActive ? 'text-slate-900' : 'text-slate-400'} opacity-90`}>
+                      <span className={`text-[8px] font-bold ${isActive ? 'text-slate-900' : 'text-slate-400'}`}>
                           {item.label}
                       </span>
-                      {isActive && <div className="absolute bottom-0 w-1 h-1 bg-brand-DEFAULT rounded-full"></div>}
                   </button>
                 );
             })}
            </div>
         </nav>
       )}
-      
-      {/* Spacer for mobile bottom safe area if needed (only if nav is visible) */}
-      {currentView !== 'PROFILE' && (
-        <div className="h-2 w-full bg-white fixed bottom-0 z-40 md:hidden"></div> 
-      )}
+      <div className="h-4 w-full bg-[#F8FAFC] pointer-events-none"></div>
     </div>
   );
 };

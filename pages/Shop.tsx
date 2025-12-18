@@ -45,17 +45,16 @@ export const ShopPage: React.FC = () => {
   if (!activeStore && availableStores.length === 0 && !isProductLoading) {
       return (
           <div className="flex flex-col items-center justify-center min-h-[70vh] px-8 text-center animate-fade-in">
-              <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center text-5xl mb-6 shadow-soft">
+              <div className="w-24 h-24 bg-slate-100 rounded-[32px] flex items-center justify-center text-5xl mb-6 shadow-soft transform -rotate-3">
                   🚀
               </div>
-              <h2 className="text-2xl font-black text-slate-800 mb-2">Services Starting Soon</h2>
-              <p className="text-sm text-slate-500 font-medium leading-relaxed max-w-xs">
-                  We are currently onboarding partners in your area. 
-                  Grocesphere will be live here very soon!
+              <h2 className="text-2xl font-black text-slate-800 mb-2 tracking-tight">Services Coming Soon</h2>
+              <p className="text-xs text-slate-500 font-bold leading-relaxed max-w-xs mb-8">
+                  Currently onboarding partners in your area. Live very soon!
               </p>
-              <div className="mt-8 bg-brand-light/50 p-4 rounded-xl border border-brand-light">
-                  <p className="text-xs font-bold text-brand-dark uppercase tracking-wide">Coming to</p>
-                  <p className="font-bold text-slate-800 mt-1">{user.address || 'Your Location'}</p>
+              <div className="w-full bg-brand-light/40 p-4 rounded-[24px] border-2 border-brand-light border-dashed">
+                  <p className="text-[9px] font-black text-brand-dark uppercase tracking-widest mb-0.5">Target Area</p>
+                  <p className="font-black text-slate-800 text-sm">{user.address || 'Your Current Location'}</p>
               </div>
           </div>
       );
@@ -86,12 +85,12 @@ export const ShopPage: React.FC = () => {
   const renderProductView = () => {
     if (isProductLoading) {
         return (
-            <div className="grid grid-cols-2 gap-3 pb-20">
+            <div className="grid grid-cols-2 gap-3 pb-20 px-3">
                 {[...Array(6)].map((_, i) => (
-                    <div key={i} className="bg-white rounded-[20px] p-3 h-56 animate-pulse">
+                    <div key={i} className="bg-white rounded-[24px] p-3 h-56 animate-pulse">
                         <div className="w-full aspect-square bg-slate-100 rounded-2xl mb-3"></div>
-                        <div className="h-3 w-3/4 bg-slate-100 rounded mb-2"></div>
-                        <div className="h-2 w-1/2 bg-slate-100 rounded mb-4"></div>
+                        <div className="h-2.5 w-3/4 bg-slate-100 rounded-full mb-2"></div>
+                        <div className="h-2.5 w-1/2 bg-slate-100 rounded-full"></div>
                     </div>
                 ))}
             </div>
@@ -100,16 +99,16 @@ export const ShopPage: React.FC = () => {
 
     if (filteredProducts.length === 0) {
         return (
-            <div className="flex flex-col items-center justify-center py-10 opacity-70 text-center px-6">
-                <span className="text-4xl mb-3 bg-slate-100 p-4 rounded-full">🔍</span>
-                <p className="text-sm font-bold text-slate-800">No items found.</p>
-                <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">Try checking another store!</p>
+            <div className="flex flex-col items-center justify-center py-12 opacity-70 text-center px-6">
+                <div className="text-5xl mb-4 bg-slate-100 p-6 rounded-[32px]">🔍</div>
+                <p className="text-base font-black text-slate-800">No items found.</p>
+                <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto font-bold">Try different filters or search terms!</p>
             </div>
         );
     }
 
     return (
-        <div className="grid grid-cols-2 gap-3 pb-20 animate-fade-in">
+        <div className="grid grid-cols-2 gap-3 pb-24 animate-fade-in px-3">
             {filteredProducts.map(product => (
                 <StickerProduct 
                     key={product.id} 
@@ -127,26 +126,35 @@ export const ShopPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in pt-4">
-      <div className="flex gap-2">
-          <input 
-              type="text" 
-              placeholder={activeStore ? `Search in ${activeStore.name}...` : "Finding stores..."}
-              disabled={!activeStore}
-              className="flex-1 p-4 bg-white rounded-2xl shadow-sm text-sm font-bold outline-none focus:ring-2 focus:ring-brand-DEFAULT/50 transition-all disabled:opacity-50"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-          />
+    <div className="space-y-3.5 animate-fade-in pt-3">
+      {/* Search Header */}
+      <div className="flex gap-2.5 px-3">
+          <div className="flex-1 relative">
+            <input 
+                type="text" 
+                placeholder={activeStore ? `Find in ${activeStore.name}...` : "Searching..."}
+                disabled={!activeStore}
+                className="w-full p-3.5 bg-white rounded-[20px] shadow-soft text-xs font-black outline-none border-2 border-transparent focus:border-brand-DEFAULT/30 transition-all disabled:opacity-50"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-300">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+            </div>
+          </div>
           <button 
              onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
-             className={`px-4 rounded-2xl border transition-all duration-300 flex items-center justify-center shadow-sm ${showFavoritesOnly ? 'bg-red-50 border-red-200 text-red-500 shadow-md' : 'bg-white border-transparent text-slate-300'}`}
+             className={`w-12 rounded-[20px] border-2 transition-all duration-300 flex items-center justify-center shadow-soft ${showFavoritesOnly ? 'bg-red-50 border-red-200 text-red-500 shadow-md scale-105' : 'bg-white border-transparent text-slate-300'}`}
           >
              <span className="text-xl">{showFavoritesOnly ? '❤️' : '🤍'}</span>
           </button>
       </div>
       
-      <div className="rounded-[2rem] overflow-hidden border border-white shadow-card relative group bg-white">
-           <div className="h-40 relative">
+      {/* Map & Store Container */}
+      <div className="mx-3 rounded-[32px] overflow-hidden border-2 border-white shadow-soft relative bg-white">
+           <div className="h-36 relative">
                 <MapVisualizer 
                     stores={availableStores} 
                     userLat={user.location?.lat || 0}
@@ -162,26 +170,26 @@ export const ShopPage: React.FC = () => {
            {activeStore && (
                <div className="px-4 py-3 bg-white flex items-center justify-between border-t border-slate-50">
                    <div className="flex items-center gap-3">
-                       <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xl shadow-inner ${
+                       <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-xl shadow-soft ${
                             activeStore.type === 'produce' ? 'bg-emerald-50 text-emerald-600' : 
                             activeStore.type === 'dairy' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-600'
                        }`}>
                             {activeStore.type === 'produce' ? '🥦' : activeStore.type === 'dairy' ? '🥛' : '🏪'}
                        </div>
                        <div>
-                           <div className="flex items-center gap-2">
-                               <h2 className="font-black text-slate-800 text-sm">{activeStore.name}</h2>
-                               <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase ${activeStore.store_type === 'local_ecommerce' ? 'bg-purple-900 text-white' : 'bg-slate-900 text-white'}`}>
-                                   {activeStore.store_type === 'local_ecommerce' ? 'E-Comm' : 'Grocery'}
+                           <div className="flex items-center gap-1.5 mb-0.5">
+                               <h2 className="font-black text-slate-900 text-xs">{activeStore.name}</h2>
+                               <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-tighter ${activeStore.store_type === 'local_ecommerce' ? 'bg-indigo-900 text-white' : 'bg-slate-900 text-white'}`}>
+                                   {activeStore.store_type === 'local_ecommerce' ? 'E-Comm' : 'Grocer'}
                                </span>
                            </div>
-                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
-                               {getStoreTypeLabel(activeStore.type, activeStore.store_type)} • {activeStore.distance}
+                           <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">
+                               {activeStore.distance} • {activeStore.type === 'produce' ? 'Farm Fresh' : 'Community Mart'}
                            </p>
                        </div>
                    </div>
                    <div className="text-right">
-                       <span className="text-xs font-black text-slate-900 block">⭐ {activeStore.rating}</span>
+                       <span className="text-[10px] font-black text-slate-900 block bg-slate-50 px-2 py-1 rounded-lg border border-slate-100">⭐ {activeStore.rating}</span>
                    </div>
                </div>
            )}
@@ -190,55 +198,57 @@ export const ShopPage: React.FC = () => {
       {activeOrder && (
           <div 
              onClick={() => setCurrentView('ORDERS')}
-             className="bg-slate-900 text-white p-4 rounded-2xl shadow-float flex items-center justify-between cursor-pointer animate-slide-up hover:scale-[1.02] transition-transform mx-1"
+             className="mx-3 bg-slate-900 text-white p-3.5 rounded-[24px] shadow-float flex items-center justify-between cursor-pointer animate-slide-up"
           >
              <div className="flex items-center gap-3">
-                 <div className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center animate-pulse">
+                 <div className="w-9 h-9 bg-white/10 rounded-xl flex items-center justify-center animate-bounce-soft text-lg">
                      🛵
                  </div>
                  <div>
-                     <p className="text-[10px] font-bold text-brand-DEFAULT uppercase tracking-wider mb-0.5">Track Your Order</p>
-                     <p className="text-sm font-black">{activeOrder.status}</p>
+                     <p className="text-[8px] font-black text-brand-DEFAULT uppercase tracking-[0.2em] mb-0.5">Live Track</p>
+                     <p className="text-xs font-black">{activeOrder.status}</p>
                  </div>
              </div>
-             <div className="text-right">
-                 <span className="text-xs font-bold text-white bg-white/10 px-2 py-1 rounded-lg">View →</span>
-             </div>
+             <span className="text-[9px] font-black text-white bg-white/10 px-3 py-1.5 rounded-lg uppercase">Track →</span>
           </div>
       )}
 
+      {/* Categories */}
       {activeStore && !searchTerm && !showFavoritesOnly && !isProductLoading && (
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-4 gap-2.5 px-3">
         {PRODUCT_FAMILIES.filter(f => isFamilyAvailable(f.id)).map((family) => {
             const isSelected = selectedFamilyId === family.id;
             return (
             <button
                 key={family.id}
                 onClick={() => setSelectedFamilyId(isSelected ? null : family.id)}
-                className={`relative p-2 rounded-2xl border transition-all duration-300 flex flex-col items-center gap-1 ${isSelected ? 'bg-slate-800 border-slate-900 shadow-lg scale-[1.02]' : `${family.theme} hover:scale-[1.02] bg-white`}`}
+                className={`relative p-2.5 rounded-[20px] border-2 transition-all duration-500 flex flex-col items-center gap-1.5 ${isSelected ? 'bg-slate-900 border-slate-900 shadow-lg scale-105' : `${family.theme} bg-white border-transparent`}`}
             >
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-lg shadow-sm ${isSelected ? 'bg-white/10 text-white' : 'bg-white'}`}>{family.emoji}</div>
-                <span className={`text-[9px] font-black uppercase tracking-wide ${isSelected ? 'text-white' : ''}`}>{family.title}</span>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-lg shadow-soft ${isSelected ? 'bg-white/10 text-white' : 'bg-white'}`}>{family.emoji}</div>
+                <span className={`text-[8px] font-black uppercase tracking-wider ${isSelected ? 'text-white' : 'text-slate-600'}`}>{family.title}</span>
             </button>
             );
         })}
         </div>
       )}
 
-      <div className="pb-10">
-          <div className="flex items-center justify-between mb-4 px-1">
+      {/* Main Section */}
+      <div className="pb-12">
+          <div className="flex items-end justify-between mb-4 px-4">
                 <div className="flex flex-col">
-                    <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
-                        {showFavoritesOnly ? 'Your Favorites' : (searchTerm ? 'Search Results' : 'Fresh Picks')}
+                    <h2 className="text-lg font-black text-slate-900 tracking-tight leading-none">
+                        {showFavoritesOnly ? 'Favorites' : (searchTerm ? 'Results' : 'Daily Fresh')}
                     </h2>
                     {activeStore && (
-                        <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">
-                            {activeStore.store_type === 'grocery' ? 'Direct from Mart' : 'Local Business Partner'}
+                        <span className="text-[8px] text-slate-400 font-black uppercase tracking-[0.2em] mt-1">
+                            Local Community Inventory
                         </span>
                     )}
                 </div>
                 {!isProductLoading && (
-                    <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-lg">{filteredProducts.length} items</span>
+                    <span className="text-[8px] font-black text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full uppercase tracking-tighter">
+                        {filteredProducts.length} Items
+                    </span>
                 )}
           </div>
           {renderProductView()}

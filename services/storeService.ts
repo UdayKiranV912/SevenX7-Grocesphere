@@ -113,13 +113,21 @@ export const fetchLiveStores = async (lat: number, lng: number, isDemo: boolean)
   }
 };
 
-export const fetchStoreProducts = async (storeId: string): Promise<Product[]> => {
+export const fetchStoreProducts = async (store: Store): Promise<Product[]> => {
+  const storeId = store.id;
   const isExternal = storeId.startsWith('demo-') || storeId.startsWith('local-') || storeId.startsWith('osm-') || storeId.startsWith('blr-');
 
+  // Logic: For external/demo stores, filter from our master INITIAL_PRODUCTS list 
+  // based on the assigned inventory for that store type.
   if (isExternal) {
-      return INITIAL_PRODUCTS;
+      if (store.availableProductIds && store.availableProductIds.length > 0) {
+          return INITIAL_PRODUCTS.filter(p => store.availableProductIds.includes(p.id));
+      }
+      // If no inventory specified, return a safe general subset
+      return INITIAL_PRODUCTS.filter(p => GENERAL_IDS.includes(p.id));
   }
 
+  // Real-time Users: Fetch exactly what the store admin has enabled in their inventory
   try {
     const { data: inventory, error: invError } = await supabase
       .from('inventory')

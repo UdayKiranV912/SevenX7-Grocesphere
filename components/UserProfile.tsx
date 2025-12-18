@@ -143,7 +143,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdateUser, on
                     </div>
                     <button 
                         onClick={() => isEditing ? handleSaveProfile() : setIsEditing(!isEditing)} 
-                        className={`text-xs font-bold px-3 py-1.5 rounded-full transition-colors ${isEditing ? 'bg-brand-DEFAULT text-white shadow-md' : 'bg-brand-light text-brand-DEFAULT'}`}
+                        className={`text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-full transition-all shadow-sm active:scale-95 ${isEditing ? 'bg-brand-DEFAULT text-white border-none' : 'bg-slate-900 text-white'}`}
                     >
                         {isEditing ? 'Save' : 'Edit'}
                     </button>
@@ -151,23 +151,23 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, onUpdateUser, on
 
                 {/* Edit Form (Address/Email) */}
                 {isEditing && (
-                    <div className="bg-white p-4 rounded-2xl border border-brand-light shadow-sm space-y-3 animate-slide-up">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase">Contact Details</label>
+                    <div className="bg-white p-5 rounded-[24px] border-2 border-brand-light shadow-soft space-y-4 animate-slide-up">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Contact Details</label>
                         <input 
-                            className="w-full p-3 rounded-xl border border-slate-200 text-sm font-bold outline-none bg-slate-50 focus:bg-white focus:border-brand-DEFAULT transition-colors"
+                            className="w-full p-4 rounded-xl border border-slate-100 text-sm font-black outline-none bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-light transition-all"
                             placeholder="Email Address"
                             value={formData.email}
                             onChange={e => setFormData({...formData, email: e.target.value})}
                         />
                         <textarea 
-                            className="w-full p-3 rounded-xl border border-slate-200 text-sm font-bold outline-none bg-slate-50 focus:bg-white focus:border-brand-DEFAULT transition-colors"
+                            className="w-full p-4 rounded-xl border border-slate-100 text-sm font-black outline-none bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-light transition-all resize-none"
                             placeholder="Delivery Address"
                             rows={3}
                             value={formData.address}
                             onChange={e => setFormData({...formData, address: e.target.value})}
                         />
-                        <button onClick={handleSaveProfile} className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl text-xs">
-                            Update Details
+                        <button onClick={handleSaveProfile} className="w-full py-4 bg-slate-900 text-white font-black rounded-xl text-xs uppercase tracking-widest shadow-float active:scale-[0.98] transition-all">
+                            Update Profile Details
                         </button>
                     </div>
                 )}

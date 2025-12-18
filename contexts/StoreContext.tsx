@@ -239,7 +239,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return;
     }
     setIsProductLoading(true);
-    fetchStoreProducts(activeStore.id).then(res => {
+    // Passing the full activeStore object instead of just ID to handle inventory filtering
+    fetchStoreProducts(activeStore).then(res => {
         setProducts(res);
         setIsProductLoading(false);
     }).catch(() => setIsProductLoading(false));
